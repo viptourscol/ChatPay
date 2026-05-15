@@ -18,7 +18,7 @@
  *   - Llamar a /api/gmail/watch una vez para activar el watch
  */
 
-import { processGmailHistory } from '../../lib/gmail.js';
+import { syncBancolombiaEmails, saveHistoryId } from '../../lib/gmail.js';
 
 export const config = { api: { bodyParser: true } };
 
@@ -44,11 +44,13 @@ export default async function handler(req, res) {
 
     console.log(`[gmail push] notificación recibida | email=${emailAddress} | historyId=${historyId}`);
 
-    // Procesar ANTES de responder para que Vercel no corte la ejecución
-    const result = await processGmailHistory(historyId);
-    console.log(`[gmail push] procesadas ${result.processed} transacción(es) nueva(s)`);
+    // Sincronizar emails de los últimos 10 minutos (más simple y confiable que history API)
+    const result = await syncBancolombiaEmails({ minutes: 10 });
+    // Actualizar historyId almacenado
+    await saveHistoryId(historyId);
+    console.log(`[gmail push] sync completado | scanned=${result.scanned} | inserted=${result.inserted}`);
 
-    return res.status(200).json({ received: true, processed: result.processed });
+    return res.status(200).json({ received: true, inserted: result.inserted });
   } catch (err) {
     console.error('[gmail push] error:', err);
     // Responder 200 igual para que Pub/Sub no reintente indefinidamente
