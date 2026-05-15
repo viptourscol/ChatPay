@@ -25,32 +25,33 @@ export const config = { api: { bodyParser: true } };
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Responder inmediatamente a Pub/Sub (si tardamos > 10s, reintenta)
-  res.status(200).json({ received: true });
-
   try {
     const envelope = req.body;
     if (!envelope?.message?.data) {
       console.warn('[gmail push] payload sin message.data');
-      return;
+      return res.status(200).json({ received: true });
     }
 
     // Decodificar el mensaje de Pub/Sub (base64 → JSON)
     const decoded = Buffer.from(envelope.message.data, 'base64').toString('utf8');
     const notification = JSON.parse(decoded);
 
-    // { emailAddress: "...", historyId: "12345" }
     const { historyId, emailAddress } = notification;
     if (!historyId) {
       console.warn('[gmail push] notificación sin historyId:', notification);
-      return;
+      return res.status(200).json({ received: true });
     }
 
     console.log(`[gmail push] notificación recibida | email=${emailAddress} | historyId=${historyId}`);
 
+    // Procesar ANTES de responder para que Vercel no corte la ejecución
     const result = await processGmailHistory(historyId);
     console.log(`[gmail push] procesadas ${result.processed} transacción(es) nueva(s)`);
+
+    return res.status(200).json({ received: true, processed: result.processed });
   } catch (err) {
     console.error('[gmail push] error:', err);
+    // Responder 200 igual para que Pub/Sub no reintente indefinidamente
+    return res.status(200).json({ received: true, error: err.message });
   }
 }
