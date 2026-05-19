@@ -2,21 +2,148 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 
-const STATUS_BADGES = {
-  real: { label: '✅ Real', cls: 'bg-green-100 text-green-700' },
-  fake: { label: '❌ Falso', cls: 'bg-red-100 text-red-700' },
-  duplicate: { label: '⚠️ Duplicado', cls: 'bg-amber-100 text-amber-700' },
-  pending: { label: '… Pendiente', cls: 'bg-slate-100 text-slate-700' },
-  error: { label: '⚙️ Error', cls: 'bg-slate-100 text-slate-700' }
+const STATUS_CONFIG = {
+  real:      { label: 'Verificado',  icon: '✅', cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+  fake:      { label: 'Falso',       icon: '❌', cls: 'bg-red-50 text-red-700 border border-red-200' },
+  duplicate: { label: 'Duplicado',   icon: '⚠️', cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
+  pending:   { label: 'Pendiente',   icon: '⏳', cls: 'bg-slate-100 text-slate-600 border border-slate-200' },
+  error:     { label: 'Error',       icon: '⚙️', cls: 'bg-slate-100 text-slate-600 border border-slate-200' },
 };
 
 function fmtMoney(n) {
   if (n == null) return '—';
-  return `$${Number(n).toLocaleString('es-CO')}`;
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
 function fmtDate(s) {
   if (!s) return '—';
-  return new Date(s).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+  return new Date(s).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function fmtDateShort(s) {
+  if (!s) return '—';
+  return new Date(s).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+function initials(name) {
+  if (!name) return '?';
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+function StatusBadge({ status }) {
+  const s = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>
+      {s.icon} {s.label}
+    </span>
+  );
+}
+
+function SummaryBar({ items = [] }) {
+  const real = items.filter(v => v.status === 'real').length;
+  const fake = items.filter(v => v.status === 'fake').length;
+  const dup  = items.filter(v => v.status === 'duplicate').length;
+  const totalAmount = items.filter(v => v.status === 'real')
+    .reduce((s, v) => s + Number(v.extracted_amount || 0), 0);
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      {[
+        { icon: '📋', label: 'Total', value: items.length, color: 'bg-slate-100' },
+        { icon: '✅', label: 'Verificados', value: real, color: 'bg-emerald-50', valueClass: 'text-emerald-700' },
+        { icon: '❌', label: 'Falsos / Dup.', value: fake + dup, color: 'bg-red-50', valueClass: 'text-red-600' },
+        { icon: '💰', label: 'Monto verificado', value: fmtMoney(totalAmount), color: 'bg-brand-50', valueClass: 'text-brand-700' },
+      ].map(({ icon, label, value, color, valueClass }) => (
+        <div key={label} className="card flex items-center gap-3 py-3">
+          <div className={`w-10 h-10 rounded-xl ${color} grid place-items-center text-lg flex-shrink-0`}>{icon}</div>
+          <div className="min-w-0">
+            <div className="text-xs text-slate-500 truncate">{label}</div>
+            <div className={`text-xl font-semibold truncate ${valueClass || 'text-slate-900'}`}>{value}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DetailModal({ v, onClose }) {
+  if (!v) return null;
+  const s = STATUS_CONFIG[v.status] || STATUS_CONFIG.pending;
+  const headerBg = v.status === 'real' ? 'bg-emerald-50' : v.status === 'fake' ? 'bg-red-50' : 'bg-slate-50';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm grid place-items-center p-4 z-50" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className={`px-6 py-4 flex items-center justify-between ${headerBg}`}>
+          <div className="flex items-center gap-3">
+            <div className="text-3xl">{s.icon}</div>
+            <div>
+              <div className="font-semibold text-slate-900">Comprobante {s.label}</div>
+              <div className="text-xs text-slate-500">{fmtDate(v.created_at)}</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div className="text-center py-3 rounded-xl bg-slate-50">
+            <div className="text-xs text-slate-500 mb-1">Monto del comprobante</div>
+            <div className="text-3xl font-bold text-slate-900">{fmtMoney(v.extracted_amount)}</div>
+            {v.extracted_reference && (
+              <div className="text-xs text-slate-400 font-mono mt-1">Ref: {v.extracted_reference}</div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-xs text-slate-400 mb-0.5">Empleado</div>
+              <div className="font-medium">{v.employees?.name || '—'}</div>
+              <div className="text-xs text-slate-400">{v.whatsapp_from}</div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-xs text-slate-400 mb-0.5">Remitente OCR</div>
+              <div className="font-medium">{v.extracted_sender || '—'}</div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-xs text-slate-400 mb-0.5">Fecha comprobante</div>
+              <div className="font-medium">{v.extracted_date ? fmtDate(v.extracted_date) : '—'}</div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-xs text-slate-400 mb-0.5">ID verificación</div>
+              <div className="font-mono text-xs">…{v.id?.slice(-12)}</div>
+            </div>
+          </div>
+
+          {v.transactions && (
+            <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4">
+              <div className="text-xs font-semibold text-emerald-800 mb-2 uppercase tracking-wide">Transferencia real vinculada</div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-900">{fmtMoney(v.transactions.amount)}</div>
+                  <div className="text-sm text-slate-600">{v.transactions.sender_name || 'Sin nombre'}</div>
+                </div>
+                <div className="text-right text-xs text-slate-500">{fmtDate(v.transactions.transaction_date)}</div>
+              </div>
+            </div>
+          )}
+
+          {v.comprobante_signed_url && (
+            <div>
+              <div className="text-xs text-slate-400 mb-2">Imagen del comprobante</div>
+              <img
+                src={v.comprobante_signed_url}
+                alt="comprobante"
+                className="w-full max-h-64 object-contain rounded-xl border border-slate-100 bg-slate-50"
+              />
+            </div>
+          )}
+
+          {v.notes && (
+            <div className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+              <span className="font-medium">Nota:</span> {v.notes}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Verifications() {
@@ -28,103 +155,92 @@ export default function Verifications() {
     queryFn: () => api('/api/verifications', { query: filters })
   });
 
+  const items = data?.items || [];
+
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-serif text-3xl">Verificaciones</h1>
-          <p className="text-slate-500 text-sm">Cada comprobante recibido por WhatsApp.</p>
+          <p className="text-slate-500 text-sm">Comprobantes recibidos por WhatsApp y su resultado.</p>
         </div>
         <div className="flex gap-2">
           <select
-            className="input w-auto"
+            className="input w-auto text-sm"
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
           >
             <option value="">Todos los estados</option>
-            <option value="real">Reales</option>
-            <option value="fake">Falsos</option>
-            <option value="duplicate">Duplicados</option>
-            <option value="error">Errores</option>
+            <option value="real">✅ Verificados</option>
+            <option value="fake">❌ Falsos</option>
+            <option value="duplicate">⚠️ Duplicados</option>
+            <option value="error">⚙️ Errores</option>
           </select>
-          <button onClick={() => refetch()} className="btn btn-ghost">Refrescar</button>
+          <button onClick={() => refetch()} className="btn btn-ghost text-sm">↻ Refrescar</button>
         </div>
       </header>
 
+      {!isLoading && <SummaryBar items={items} />}
+
       <div className="card overflow-hidden p-0">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left">
+          <thead className="bg-slate-50 border-b border-slate-100 text-left">
             <tr>
-              <th className="px-4 py-3">Fecha</th>
-              <th className="px-4 py-3">Empleado</th>
-              <th className="px-4 py-3">Monto</th>
-              <th className="px-4 py-3">Referencia</th>
-              <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Empleado</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Remitente</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Monto</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-50">
             {isLoading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-500">Cargando…</td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+                    Cargando…
+                  </div>
+                </td>
+              </tr>
             )}
-            {!isLoading && (data?.items || []).length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-500">Sin resultados</td></tr>
+            {!isLoading && items.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-12 text-center">
+                  <div className="text-4xl mb-2">📭</div>
+                  <div className="text-slate-400 text-sm">Sin verificaciones aún</div>
+                </td>
+              </tr>
             )}
-            {(data?.items || []).map((v) => {
-              const b = STATUS_BADGES[v.status] || STATUS_BADGES.pending;
-              return (
-                <tr key={v.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3">{fmtDate(v.created_at)}</td>
-                  <td className="px-4 py-3">{v.employees?.name || v.whatsapp_from || '—'}</td>
-                  <td className="px-4 py-3">{fmtMoney(v.extracted_amount)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{v.extracted_reference || '—'}</td>
-                  <td className="px-4 py-3"><span className={`badge ${b.cls}`}>{b.label}</span></td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => setSelected(v)} className="text-brand-600 hover:underline text-sm">
-                      Ver
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+            {items.map((v) => (
+              <tr
+                key={v.id}
+                className="hover:bg-slate-50 transition-colors cursor-pointer"
+                onClick={() => setSelected(v)}
+              >
+                <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">{fmtDateShort(v.created_at)}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 text-xs font-bold grid place-items-center flex-shrink-0">
+                      {initials(v.employees?.name)}
+                    </div>
+                    <span className="font-medium text-slate-800 text-xs">{v.employees?.name || v.whatsapp_from || '—'}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-slate-600 text-xs max-w-[140px] truncate">{v.extracted_sender || <span className="text-slate-300">—</span>}</td>
+                <td className="px-4 py-3 font-semibold text-slate-900">{fmtMoney(v.extracted_amount)}</td>
+                <td className="px-4 py-3"><StatusBadge status={v.status} /></td>
+                <td className="px-4 py-3 text-right">
+                  <span className="text-brand-600 text-xs font-medium">Ver →</span>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {selected && (
-        <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-50" onClick={() => setSelected(null)}>
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="font-serif text-2xl">Detalle de verificación</h3>
-                <p className="text-sm text-slate-500">{fmtDate(selected.created_at)}</p>
-              </div>
-              <button className="text-slate-400" onClick={() => setSelected(null)}>✕</button>
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><div className="text-slate-500">Empleado</div><div>{selected.employees?.name || '—'}</div></div>
-              <div><div className="text-slate-500">WhatsApp</div><div>{selected.whatsapp_from}</div></div>
-              <div><div className="text-slate-500">Monto extraído</div><div>{fmtMoney(selected.extracted_amount)}</div></div>
-              <div><div className="text-slate-500">Referencia</div><div className="font-mono">{selected.extracted_reference || '—'}</div></div>
-              <div><div className="text-slate-500">Remitente</div><div>{selected.extracted_sender || '—'}</div></div>
-              <div><div className="text-slate-500">Estado</div><div>{(STATUS_BADGES[selected.status] || {}).label}</div></div>
-            </div>
-            {selected.transactions && (
-              <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-100 text-sm">
-                <div className="font-semibold text-green-800 mb-1">Transferencia real coincidente</div>
-                <div>{fmtMoney(selected.transactions.amount)} · {selected.transactions.sender_name || 's/n'}</div>
-                <div className="text-xs text-slate-500">{fmtDate(selected.transactions.transaction_date)}</div>
-              </div>
-            )}
-            {selected.comprobante_signed_url && (
-              <div className="mt-4">
-                <img src={selected.comprobante_signed_url} alt="comprobante" className="max-h-96 mx-auto rounded-lg border" />
-              </div>
-            )}
-            {selected.notes && <div className="mt-4 text-sm text-slate-500">Notas: {selected.notes}</div>}
-          </div>
-        </div>
-      )}
+      <DetailModal v={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
