@@ -109,6 +109,7 @@ function Lightbox({ src, onClose }) {
 }
 
 // ─── Detail Modal ─────────────────────────────────────────────────
+function DetailModal({ v, onClose }) {
   const [lightbox, setLightbox] = useState(null);
   if (!v) return null;
   const s = STATUS_CONFIG[v.status] || STATUS_CONFIG.pending;
