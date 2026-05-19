@@ -116,7 +116,10 @@ export default async function handler(req, res) {
       status,
       employeeName: employee.name,
       amount: extracted.amount,
-      reference: extracted.reference
+      reference: extracted.reference,
+      senderName: transaction?.sender_name || extracted.sender_name,
+      transactionDate: transaction?.transaction_date,
+      transactionId: transaction?.id
     });
 
     await sendMessage(from, responseText);
