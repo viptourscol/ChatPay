@@ -19,14 +19,13 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Responder rápido a Meta para no superar timeout
-  res.status(200).json({ received: true });
-
+  // Responder rápido a Meta para no superar timeout de 20s
+  // IMPORTANTE: procesamos ANTES de responder para que Vercel no corte la ejecución
   try {
     const entry = req.body?.entry?.[0];
     const change = entry?.changes?.[0]?.value;
     const message = change?.messages?.[0];
-    if (!message) return;
+    if (!message) return res.status(200).json({ received: true });
 
     const from = message.from; // ej: 573001234567
     const fromE164 = `+${from}`;
@@ -38,7 +37,7 @@ export default async function handler(req, res) {
       .select('id')
       .eq('whatsapp_message_id', wamid)
       .maybeSingle();
-    if (existing) return;
+    if (existing) return res.status(200).json({ received: true });
 
     // --- Validar empleado ---
     const { data: employee } = await supabaseAdmin
@@ -56,7 +55,7 @@ export default async function handler(req, res) {
         status: 'error',
         notes: 'empleado no autorizado'
       });
-      return;
+      return res.status(200).json({ received: true });
     }
 
     // --- Mensajes que no son imagen ---
@@ -65,7 +64,7 @@ export default async function handler(req, res) {
         from,
         `Hola ${employee.name} 👋\nEnvíame la *foto del comprobante* de pago para verificarlo.`
       );
-      return;
+      return res.status(200).json({ received: true });
     }
 
     // --- Descargar imagen y subir a Supabase Storage ---
@@ -102,7 +101,7 @@ export default async function handler(req, res) {
         status: 'error',
         notes: 'no es comprobante (OCR)'
       });
-      return;
+      return res.status(200).json({ received: true });
     }
 
     // --- Matching contra transacciones almacenadas (pending → confirmed) ---
@@ -135,7 +134,10 @@ export default async function handler(req, res) {
       whatsapp_from: fromE164,
       response_text: responseText
     });
+
+    return res.status(200).json({ received: true });
   } catch (err) {
     console.error('[webhook] fatal', err);
+    return res.status(200).json({ received: true });
   }
 }
