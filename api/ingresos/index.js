@@ -9,6 +9,8 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
 
+  try {
+
   const { from, to, min_amount, max_amount, status, sender, page = '1', limit = '50' } = req.query;
   const pageNum = Math.max(1, parseInt(page));
   const pageSize = Math.min(100, Math.max(1, parseInt(limit)));
@@ -30,20 +32,23 @@ export default async function handler(req, res) {
   const { data: items, count, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
-  // Stats globales y del mes
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  const [allRows, monthRows, pendingRows] = await Promise.all([
+  // Queries de stats en paralelo — cada una con manejo de error independiente
+  const [allRows, monthRows, pendingRes] = await Promise.all([
     supabaseAdmin.from('transactions').select('amount'),
     supabaseAdmin.from('transactions').select('amount').gte('transaction_date', monthStart),
     supabaseAdmin.from('transactions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
   ]);
 
-  const allTimeTotal = (allRows.data || []).reduce((acc, t) => acc + Number(t.amount), 0);
-  const allTimeAvg = allRows.data?.length ? allTimeTotal / allRows.data.length : 0;
-  const monthTotal = (monthRows.data || []).reduce((acc, t) => acc + Number(t.amount), 0);
-  const maxTx = (allRows.data || []).reduce((mx, t) => Math.max(mx, Number(t.amount)), 0);
+  const allData = allRows.data || [];
+  const allTimeTotal = allData.reduce((s, t) => s + Number(t.amount || 0), 0);
+  const allTimeCount = allData.length;
+  const allTimeAvg   = allTimeCount ? allTimeTotal / allTimeCount : 0;
+
+  const monthData  = monthRows.data || [];
+  const monthTotal = monthData.reduce((s, t) => s + Number(t.amount || 0), 0);
 
   return res.json({
     items: items || [],
@@ -53,12 +58,15 @@ export default async function handler(req, res) {
     stats: {
       allTimeTotal,
       allTimeAvg,
-      allTimeCount: allRows.data?.length || 0,
+      allTimeCount,
       monthTotal,
-      monthCount: monthRows.data?.length || 0,
-      pendingCount: pendingRows.count || 0,
-      maxTx,
+      monthCount: monthData.length,
+      pendingCount: pendingRes.error ? 0 : (pendingRes.count || 0),
     }
   });
+  } catch (err) {
+    console.error('[ingresos] unhandled error:', err);
+    return res.status(500).json({ error: err.message });
+  }
 }
 
