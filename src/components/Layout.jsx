@@ -3,8 +3,11 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import {
   LayoutDashboard, ShieldCheck, TrendingUp, TrendingDown,
-  Users, BarChart2, Settings, LogOut, Building2
+  Users, BarChart2, Settings, LogOut, Building2, ShieldAlert
 } from 'lucide-react';
+
+// Email del super admin — debe coincidir con ADMIN_EMAILS en el backend
+const SUPER_ADMIN_EMAIL = 'pagosviptourscol@gmail.com';
 
 const MODULES = [
   { to: '/dashboard',     label: 'Dashboard',      Icon: LayoutDashboard },
@@ -111,6 +114,23 @@ export default function Layout() {
               <Settings size={16} className="shrink-0" />
               <span>Configuración</span>
             </NavLink>
+
+            {/* Link de Super Admin — solo visible para el admin */}
+            {user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'text-rose-600 hover:bg-rose-50'
+                  }`
+                }
+              >
+                <ShieldAlert size={16} className="shrink-0" />
+                <span>Super Admin</span>
+              </NavLink>
+            )}
           </div>
         </nav>
 
