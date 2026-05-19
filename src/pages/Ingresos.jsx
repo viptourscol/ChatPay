@@ -256,11 +256,6 @@ export default function Ingresos() {
   );
 }
 
-
-function fmtMoney(n) {
-  if (n == null) return '—';
-  return `$${Number(n).toLocaleString('es-CO', { minimumFractionDigits: 0 })}`;
-}
 function fmtDate(s) {
   if (!s) return '—';
   return new Date(s).toLocaleDateString('es-CO', { dateStyle: 'medium' });
