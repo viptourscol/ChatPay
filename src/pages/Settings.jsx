@@ -37,7 +37,7 @@ function TabEmpresa() {
 
   // Inicializar form cuando lleguen datos
   if (data && !form) {
-    setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '' });
+    setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '', bancolombia_email: data.bancolombia_email || '' });
   }
 
   const mutation = useMutation({
@@ -75,30 +75,25 @@ function TabEmpresa() {
         </div>
       )}
 
-      {/* Email alias para reenvío de alertas Bancolombia */}
-      {data?.email_alias && (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 mb-6">
-          <div className="text-sm font-medium text-emerald-700 mb-0.5">Email de alertas Bancolombia</div>
-          <div className="text-xs text-emerald-600 mb-2">
-            Configura el reenvío automático de tus alertas Bancolombia hacia este email para que ChatPay las procese.
-          </div>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 font-mono text-sm text-emerald-800 bg-emerald-100 rounded px-2 py-1 break-all">
-              {data.email_alias}@chatpay.co
-            </code>
-            <button
-              onClick={() => navigator.clipboard.writeText(`${data.email_alias}@chatpay.co`)}
-              className="p-1.5 rounded hover:bg-emerald-200 transition text-emerald-600"
-              title="Copiar email"
-            >
-              <Clipboard size={15} />
-            </button>
-          </div>
-          <p className="text-xs text-emerald-500 mt-2">
-            Plan actual: <strong className="capitalize">{data.plan || 'free'}</strong> · Máx. {data.max_employees ?? 3} empleados
-          </p>
+      {/* Email Bancolombia para routing automático */}
+      <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 mb-6">
+        <div className="text-sm font-medium text-emerald-700 mb-0.5 flex items-center gap-1.5">
+          <Landmark size={14} /> Email de alertas Bancolombia
         </div>
-      )}
+        <div className="text-xs text-emerald-600 mb-2">
+          Correo donde Bancolombia envía las notificaciones de tu cuenta. ChatPay lo usa para identificar tus pagos automáticamente.
+        </div>
+        <input
+          className="input w-full bg-white"
+          value={form?.bancolombia_email || ''}
+          onChange={(e) => set('bancolombia_email', e.target.value)}
+          placeholder="Ej: mipago@gmail.com"
+          type="email"
+        />
+        <p className="text-xs text-emerald-500 mt-2">
+          Plan actual: <strong className="capitalize">{data.plan || 'free'}</strong> · Máx. {data.max_employees ?? 3} empleados
+        </p>
+      </div>
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
