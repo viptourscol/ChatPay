@@ -8,8 +8,9 @@ export default async function handler(req, res) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const [todayQ, weekQ, fakeQ, empQ, recentQ] = await Promise.all([
+  const [todayQ, weekQ, fakeQ, empQ, recentQ, recentVerifQ, pendingQ, amountQ] = await Promise.all([
     supabaseAdmin
       .from('verifications')
       .select('id', { count: 'exact', head: true })
@@ -30,7 +31,24 @@ export default async function handler(req, res) {
     supabaseAdmin
       .from('verifications')
       .select('created_at,status')
-      .gte('created_at', weekAgo.toISOString())
+      .gte('created_at', weekAgo.toISOString()),
+    // Últimas 8 verificaciones con detalle para actividad reciente
+    supabaseAdmin
+      .from('verifications')
+      .select('id,created_at,status,extracted_amount,extracted_sender,whatsapp_from,employees(name)')
+      .order('created_at', { ascending: false })
+      .limit(8),
+    // Transacciones pendientes sin verificar
+    supabaseAdmin
+      .from('transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending'),
+    // Monto total verificado (real) en el mes
+    supabaseAdmin
+      .from('verifications')
+      .select('extracted_amount')
+      .eq('status', 'real')
+      .gte('created_at', monthAgo.toISOString()),
   ]);
 
   // Agrupar por día (últimos 7 días)
@@ -50,11 +68,22 @@ export default async function handler(req, res) {
     else byDay[k].other++;
   });
 
+  const totalAmountMonth = (amountQ.data || [])
+    .reduce((s, r) => s + Number(r.extracted_amount || 0), 0);
+
+  const weekTotal = weekQ.count || 0;
+  const weekReal = (recentQ.data || []).filter(v => v.status === 'real').length;
+  const accuracy = weekTotal > 0 ? Math.round((weekReal / weekTotal) * 100) : 0;
+
   res.json({
     today: todayQ.count || 0,
-    week: weekQ.count || 0,
+    week: weekTotal,
     fakes: fakeQ.count || 0,
     activeEmployees: empQ.count || 0,
-    daily: Object.entries(byDay).map(([date, v]) => ({ date, ...v }))
+    pendingTransactions: pendingQ.count || 0,
+    totalAmountMonth,
+    accuracy,
+    daily: Object.entries(byDay).map(([date, v]) => ({ date, ...v })),
+    recent: recentVerifQ.data || [],
   });
 }
