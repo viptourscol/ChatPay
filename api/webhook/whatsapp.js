@@ -109,7 +109,8 @@ export default async function handler(req, res) {
     const { transaction, status } = await matchTransaction({
       amount: extracted.amount,
       reference: extracted.reference,
-      date: extracted.date
+      date: extracted.date,
+      senderName: extracted.sender_name
     });
 
     const responseText = buildResponseMessage({
