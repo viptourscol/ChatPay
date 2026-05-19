@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const { from, to, min_amount, max_amount, page = '1', limit = '50' } = req.query;
+  const { from, to, min_amount, max_amount, status, sender, page = '1', limit = '50' } = req.query;
   const pageNum = Math.max(1, parseInt(page));
   const pageSize = Math.min(100, Math.max(1, parseInt(limit)));
   const offset = (pageNum - 1) * pageSize;
@@ -24,26 +24,26 @@ export default async function handler(req, res) {
   if (to) query = query.lte('transaction_date', to + 'T23:59:59');
   if (min_amount) query = query.gte('amount', parseFloat(min_amount));
   if (max_amount) query = query.lte('amount', parseFloat(max_amount));
+  if (status) query = query.eq('status', status);
+  if (sender) query = query.ilike('sender_name', `%${sender}%`);
 
   const { data: items, count, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
-  // Stats del período filtrado
-  const { data: statsRows } = await supabaseAdmin
-    .from('transactions')
-    .select('amount');
-
-  const total = (statsRows || []).reduce((acc, t) => acc + Number(t.amount), 0);
-  const avg = statsRows?.length ? total / statsRows.length : 0;
-
-  // Stats del mes actual
+  // Stats globales y del mes
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const { data: monthRows } = await supabaseAdmin
-    .from('transactions')
-    .select('amount')
-    .gte('transaction_date', monthStart);
-  const monthTotal = (monthRows || []).reduce((acc, t) => acc + Number(t.amount), 0);
+
+  const [allRows, monthRows, pendingRows] = await Promise.all([
+    supabaseAdmin.from('transactions').select('amount'),
+    supabaseAdmin.from('transactions').select('amount').gte('transaction_date', monthStart),
+    supabaseAdmin.from('transactions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+  ]);
+
+  const allTimeTotal = (allRows.data || []).reduce((acc, t) => acc + Number(t.amount), 0);
+  const allTimeAvg = allRows.data?.length ? allTimeTotal / allRows.data.length : 0;
+  const monthTotal = (monthRows.data || []).reduce((acc, t) => acc + Number(t.amount), 0);
+  const maxTx = (allRows.data || []).reduce((mx, t) => Math.max(mx, Number(t.amount)), 0);
 
   return res.json({
     items: items || [],
@@ -51,10 +51,14 @@ export default async function handler(req, res) {
     page: pageNum,
     pageSize,
     stats: {
-      allTimeTotal: total,
-      allTimeAvg: avg,
+      allTimeTotal,
+      allTimeAvg,
+      allTimeCount: allRows.data?.length || 0,
       monthTotal,
-      monthCount: monthRows?.length || 0
+      monthCount: monthRows.data?.length || 0,
+      pendingCount: pendingRows.count || 0,
+      maxTx,
     }
   });
 }
+
