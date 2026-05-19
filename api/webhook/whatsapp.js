@@ -58,6 +58,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true });
     }
 
+    const companyId = employee.company_id;
+
     // --- Mensajes de texto: verificar si hay desambiguación pendiente ---
     if (message.type === 'text') {
       const text = message.text?.body?.trim();
@@ -94,6 +96,7 @@ export default async function handler(req, res) {
         await supabaseAdmin.from('verifications').insert({
           employee_id: employee.id,
           transaction_id: txId,
+          company_id: companyId,
           status: 'real',
           extracted_amount: pending.extracted_amount,
           extracted_reference: pending.extracted_reference,
@@ -147,6 +150,7 @@ export default async function handler(req, res) {
       );
       await supabaseAdmin.from('verifications').insert({
         employee_id: employee.id,
+        company_id: companyId,
         whatsapp_message_id: wamid,
         whatsapp_from: fromE164,
         comprobante_image_url: path,
@@ -161,13 +165,15 @@ export default async function handler(req, res) {
       amount: extracted.amount,
       reference: extracted.reference,
       date: extracted.date,
-      senderName: extracted.sender_name
+      senderName: extracted.sender_name,
+      companyId
     });
 
     // --- Caso ambiguo: múltiples pagos con el mismo monto ---
     if (status === 'ambiguous') {
       await supabaseAdmin.from('disambiguations').insert({
         employee_id: employee.id,
+        company_id: companyId,
         whatsapp_from: fromE164,
         candidate_ids: candidates.map(c => c.id),
         comprobante_image_url: path,
@@ -203,6 +209,7 @@ export default async function handler(req, res) {
 
     await supabaseAdmin.from('verifications').insert({
       employee_id: employee.id,
+      company_id: companyId,
       transaction_id: transaction?.id || null,
       status,
       extracted_amount: extracted.amount || null,

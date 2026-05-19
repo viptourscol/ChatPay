@@ -1,15 +1,21 @@
 import { requireUser } from '../../lib/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
+import { requireCompany } from '../../lib/getCompany.js';
 
 export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
+
+  const company = await requireCompany(user.id, res);
+  if (!company) return;
+  const companyId = company.id;
 
   if (req.method === 'GET') {
     const { from, to, status, employee_id, limit = 100 } = req.query;
     let q = supabaseAdmin
       .from('verifications')
       .select('*, employees(name, whatsapp_number), transactions(*)')
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(Number(limit));
     if (status) q = q.eq('status', status);

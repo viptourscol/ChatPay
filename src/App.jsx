@@ -12,6 +12,7 @@ import Reports from './pages/Reports.jsx';
 import Ingresos from './pages/Ingresos.jsx';
 import Egresos from './pages/Egresos.jsx';
 import Settings from './pages/Settings.jsx';
+import Admin from './pages/Admin.jsx';
 
 export default function App() {
   const [session, setSession] = useState(undefined);
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/ingresos" element={<Ingresos />} />
         <Route path="/egresos" element={<Egresos />} />
         <Route path="/configuracion" element={<Settings />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

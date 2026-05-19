@@ -1,9 +1,14 @@
 import { requireUser } from '../../lib/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
+import { requireCompany } from '../../lib/getCompany.js';
 
 export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
+
+  const company = await requireCompany(user.id, res);
+  if (!company) return;
+  const companyId = company.id;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -14,39 +19,47 @@ export default async function handler(req, res) {
     supabaseAdmin
       .from('verifications')
       .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
       .gte('created_at', today.toISOString()),
     supabaseAdmin
       .from('verifications')
       .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
       .gte('created_at', weekAgo.toISOString()),
     supabaseAdmin
       .from('verifications')
       .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
       .in('status', ['fake', 'duplicate'])
       .gte('created_at', weekAgo.toISOString()),
     supabaseAdmin
       .from('employees')
       .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
       .eq('is_active', true),
     supabaseAdmin
       .from('verifications')
       .select('created_at,status')
+      .eq('company_id', companyId)
       .gte('created_at', weekAgo.toISOString()),
     // Últimas 8 verificaciones con detalle para actividad reciente
     supabaseAdmin
       .from('verifications')
       .select('id,created_at,status,extracted_amount,extracted_sender,whatsapp_from,employees(name)')
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(8),
     // Transacciones pendientes sin verificar
     supabaseAdmin
       .from('transactions')
       .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
       .eq('status', 'pending'),
     // Monto total verificado (real) en el mes
     supabaseAdmin
       .from('verifications')
       .select('extracted_amount')
+      .eq('company_id', companyId)
       .eq('status', 'real')
       .gte('created_at', monthAgo.toISOString()),
   ]);

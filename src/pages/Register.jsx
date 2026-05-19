@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { api } from '../lib/api.js';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '', confirm: '', name: '' });
+  const [form, setForm] = useState({ email: '', password: '', confirm: '', name: '', company: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -22,16 +23,19 @@ export default function Register() {
     if (form.password !== form.confirm) {
       return setError('Las contraseñas no coinciden.');
     }
+    if (!form.company.trim()) {
+      return setError('El nombre de la empresa es requerido.');
+    }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: { data: { full_name: form.name } }
+      options: { data: { full_name: form.name, company_name: form.company.trim() } }
     });
     setLoading(false);
 
-    if (error) return setError(error.message);
+    if (signUpError) return setError(signUpError.message);
     setSuccess(true);
   };
 
@@ -63,6 +67,10 @@ export default function Register() {
             <div>
               <label className="label">Nombre completo</label>
               <input className="input" type="text" required placeholder="Juan Pérez" value={form.name} onChange={change('name')} />
+            </div>
+            <div>
+              <label className="label">Nombre de tu empresa</label>
+              <input className="input" type="text" required placeholder="Mi Negocio S.A.S." value={form.company} onChange={change('company')} />
             </div>
             <div>
               <label className="label">Correo electrónico</label>

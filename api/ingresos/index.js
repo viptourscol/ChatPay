@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireUser } from '../../lib/auth.js';
+import { requireCompany } from '../../lib/getCompany.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,6 +9,10 @@ export default async function handler(req, res) {
 
   const user = await requireUser(req, res);
   if (!user) return;
+
+  const company = await requireCompany(user.id, res);
+  if (!company) return;
+  const companyId = company.id;
 
   try {
 
@@ -19,6 +24,7 @@ export default async function handler(req, res) {
   let query = supabaseAdmin
     .from('transactions')
     .select('*', { count: 'exact' })
+    .eq('company_id', companyId)
     .order('transaction_date', { ascending: false })
     .range(offset, offset + pageSize - 1);
 
@@ -37,9 +43,9 @@ export default async function handler(req, res) {
 
   // Queries de stats en paralelo — cada una con manejo de error independiente
   const [allRows, monthRows, pendingRes] = await Promise.all([
-    supabaseAdmin.from('transactions').select('amount'),
-    supabaseAdmin.from('transactions').select('amount').gte('transaction_date', monthStart),
-    supabaseAdmin.from('transactions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabaseAdmin.from('transactions').select('amount').eq('company_id', companyId),
+    supabaseAdmin.from('transactions').select('amount').eq('company_id', companyId).gte('transaction_date', monthStart),
+    supabaseAdmin.from('transactions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'pending'),
   ]);
 
   const allData = allRows.data || [];

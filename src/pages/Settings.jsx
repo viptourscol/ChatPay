@@ -59,7 +59,7 @@ function TabEmpresa() {
 
       {/* ID de la empresa */}
       {data?.id && (
-        <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 mb-6">
+        <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 mb-4">
           <div className="text-sm font-medium text-blue-700 mb-0.5">ID de la Empresa</div>
           <div className="text-xs text-blue-500 mb-2">Usa este ID para integraciones y APIs</div>
           <div className="flex items-center gap-2">
@@ -72,6 +72,31 @@ function TabEmpresa() {
               <Clipboard size={15} />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Email alias para reenvío de alertas Bancolombia */}
+      {data?.email_alias && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 mb-6">
+          <div className="text-sm font-medium text-emerald-700 mb-0.5">Email de alertas Bancolombia</div>
+          <div className="text-xs text-emerald-600 mb-2">
+            Configura el reenvío automático de tus alertas Bancolombia hacia este email para que ChatPay las procese.
+          </div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 font-mono text-sm text-emerald-800 bg-emerald-100 rounded px-2 py-1 break-all">
+              {data.email_alias}@chatpay.co
+            </code>
+            <button
+              onClick={() => navigator.clipboard.writeText(`${data.email_alias}@chatpay.co`)}
+              className="p-1.5 rounded hover:bg-emerald-200 transition text-emerald-600"
+              title="Copiar email"
+            >
+              <Clipboard size={15} />
+            </button>
+          </div>
+          <p className="text-xs text-emerald-500 mt-2">
+            Plan actual: <strong className="capitalize">{data.plan || 'free'}</strong> · Máx. {data.max_employees ?? 3} empleados
+          </p>
         </div>
       )}
 
