@@ -58,12 +58,64 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true });
     }
 
-    // --- Mensajes que no son imagen ---
-    if (message.type !== 'image') {
+    // --- Mensajes de texto: verificar si hay desambiguación pendiente ---
+    if (message.type === 'text') {
+      const text = message.text?.body?.trim();
+      const { data: pending } = await supabaseAdmin
+        .from('disambiguations')
+        .select('*')
+        .eq('whatsapp_from', fromE164)
+        .eq('resolved', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pending && /^[1-9]$/.test(text)) {
+        const idx = parseInt(text, 10) - 1;
+        const txId = pending.candidate_ids[idx];
+        if (!txId) {
+          await sendMessage(from, `Opción inválida. Responde con un número entre 1 y ${pending.candidate_ids.length}.`);
+          return res.status(200).json({ received: true });
+        }
+        // Confirmar la transacción seleccionada
+        const { data: tx } = await supabaseAdmin.from('transactions').select('*').eq('id', txId).maybeSingle();
+        await supabaseAdmin.from('transactions').update({ status: 'confirmed' }).eq('id', txId);
+        await supabaseAdmin.from('disambiguations').update({ resolved: true }).eq('id', pending.id);
+        const { buildResponseMessage } = await import('../../lib/matcher.js');
+        const responseText = buildResponseMessage({
+          status: 'real',
+          employeeName: employee.name,
+          amount: tx?.amount,
+          senderName: tx?.sender_name,
+          transactionDate: tx?.transaction_date,
+          transactionId: tx?.id
+        });
+        await sendMessage(from, responseText);
+        await supabaseAdmin.from('verifications').insert({
+          employee_id: employee.id,
+          transaction_id: txId,
+          status: 'real',
+          extracted_amount: pending.extracted_amount,
+          extracted_reference: pending.extracted_reference,
+          comprobante_image_url: pending.comprobante_image_url,
+          whatsapp_message_id: wamid,
+          whatsapp_from: fromE164,
+          response_text: responseText,
+          notes: 'confirmado por selección manual'
+        });
+        return res.status(200).json({ received: true });
+      }
+
+      // Texto sin desambiguación pendiente → instrucción normal
       await sendMessage(
         from,
         `Hola ${employee.name} 👋\nEnvíame la *foto del comprobante* de pago para verificarlo.`
       );
+      return res.status(200).json({ received: true });
+    }
+
+    // --- Otros tipos que no son imagen ---
+    if (message.type !== 'image') {
       return res.status(200).json({ received: true });
     }
 
@@ -105,12 +157,37 @@ export default async function handler(req, res) {
     }
 
     // --- Matching contra transacciones almacenadas (pending → confirmed) ---
-    const { transaction, status } = await matchTransaction({
+    const { transaction, status, candidates } = await matchTransaction({
       amount: extracted.amount,
       reference: extracted.reference,
       date: extracted.date,
       senderName: extracted.sender_name
     });
+
+    // --- Caso ambiguo: múltiples pagos con el mismo monto ---
+    if (status === 'ambiguous') {
+      await supabaseAdmin.from('disambiguations').insert({
+        employee_id: employee.id,
+        whatsapp_from: fromE164,
+        candidate_ids: candidates.map(c => c.id),
+        comprobante_image_url: path,
+        extracted_amount: extracted.amount,
+        extracted_reference: extracted.reference,
+        extracted_date: extracted.date ? new Date(extracted.date).toISOString() : null,
+        extracted_sender: extracted.sender_name
+      });
+      const fmt = extracted.amount ? `$${Number(extracted.amount).toLocaleString('es-CO')}` : '';
+      const list = candidates.map((c, i) => {
+        const d = new Date(c.transaction_date).toLocaleString('es-CO', {
+          timeZone: 'America/Bogota', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+        return `${i + 1}. ${c.sender_name || 'Sin nombre'} — ${d}`;
+      }).join('\n');
+      await sendMessage(from,
+        `${employee.name}, encontré ${candidates.length} pagos pendientes de ${fmt}:\n\n${list}\n\n¿Cuál corresponde a este comprobante? Responde con el número.`
+      );
+      return res.status(200).json({ received: true });
+    }
 
     const responseText = buildResponseMessage({
       status,
