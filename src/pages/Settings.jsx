@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { supabase } from '../lib/supabase.js';
+import {
+  Building2, Users, Mail, Tag, Code2,
+  Clipboard, Check, User, Lock, Smartphone, Landmark,
+  RefreshCw, Loader2, CheckCircle2, Save, Zap
+} from 'lucide-react';
 
 const TAX_REGIMES = [
   { value: '', label: 'Seleccionar régimen' },
@@ -13,11 +18,11 @@ const TAX_REGIMES = [
 ];
 
 const TABS = [
-  { id: 'empresa', label: 'Empresa', icon: '🏢' },
-  { id: 'usuarios', label: 'Usuarios', icon: '👥' },
-  { id: 'conexiones', label: 'Conexiones', icon: '✉️' },
-  { id: 'egresos', label: 'Egresos', icon: '🏷️' },
-  { id: 'api', label: 'API Docs', icon: '</>' }
+  { id: 'empresa',    label: 'Empresa',    Icon: Building2 },
+  { id: 'usuarios',   label: 'Usuarios',   Icon: Users },
+  { id: 'conexiones', label: 'Conexiones', Icon: Mail },
+  { id: 'egresos',    label: 'Egresos',    Icon: Tag },
+  { id: 'api',        label: 'API Docs',   Icon: Code2 },
 ];
 
 // ─── Tab: Empresa ────────────────────────────────────────────────
@@ -50,7 +55,7 @@ function TabEmpresa() {
 
   return (
     <div>
-      <h2 className="font-semibold text-lg mb-5 flex items-center gap-2">🏢 Información de la Empresa</h2>
+      <h2 className="font-semibold text-lg mb-5 flex items-center gap-2"><Building2 size={18} /> Información de la Empresa</h2>
 
       {/* ID de la empresa */}
       {data?.id && (
@@ -64,7 +69,7 @@ function TabEmpresa() {
               className="p-1.5 rounded hover:bg-blue-200 transition text-blue-600"
               title="Copiar ID"
             >
-              📋
+              <Clipboard size={15} />
             </button>
           </div>
         </div>
@@ -104,7 +109,7 @@ function TabEmpresa() {
           onClick={() => mutation.mutate(form)}
           disabled={mutation.isPending}
         >
-          {mutation.isPending ? 'Guardando…' : saved ? '✅ Información guardada' : '💾 Guardar Información'}
+          {mutation.isPending ? 'Guardando…' : saved ? <span className="flex items-center justify-center gap-1.5"><CheckCircle2 size={15} /> Información guardada</span> : <span className="flex items-center justify-center gap-1.5"><Save size={15} /> Guardar Información</span>}
         </button>
       </div>
     </div>
@@ -135,7 +140,7 @@ function TabUsuarios() {
   return (
     <div className="space-y-8 max-w-lg">
       <div>
-        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">👤 Tu cuenta</h2>
+        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2"><User size={18} /> Tu cuenta</h2>
         <div className="rounded-xl border border-slate-200 p-4 space-y-3">
           <div>
             <div className="text-xs text-slate-500">Correo electrónico</div>
@@ -153,7 +158,7 @@ function TabUsuarios() {
       </div>
 
       <div>
-        <h2 className="font-semibold text-lg mb-4">🔒 Cambiar contraseña</h2>
+        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2"><Lock size={18} /> Cambiar contraseña</h2>
         <form onSubmit={changePassword} className="space-y-3">
           <div>
             <label className="text-sm text-slate-600 mb-1 block">Nueva contraseña</label>
@@ -191,9 +196,9 @@ function TabConexiones() {
     try {
       const { api } = await import('../lib/api.js');
       const result = await api('/api/gmail/sync');
-      setSyncResult({ ok: true, text: `✅ Sync completado: ${result.inserted} nueva(s) transacción(es) de ${result.scanned} emails escaneados.` });
+      setSyncResult({ ok: true, text: `Sync completado: ${result.inserted} nueva(s) transacción(es) de ${result.scanned} emails escaneados.` });
     } catch (err) {
-      setSyncResult({ ok: false, text: `❌ Error: ${err.message}` });
+      setSyncResult({ ok: false, text: `Error: ${err.message}` });
     } finally {
       setSyncing(false);
     }
@@ -201,13 +206,13 @@ function TabConexiones() {
 
   return (
     <div className="space-y-6 max-w-xl">
-      <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">✉️ Conexiones activas</h2>
+      <h2 className="font-semibold text-lg mb-4 flex items-center gap-2"><Mail size={18} /> Conexiones activas</h2>
 
       {/* WhatsApp */}
       <div className="rounded-xl border border-slate-200 p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-xl">📱</span>
+            <Smartphone size={22} className="text-slate-500" />
             <div>
               <div className="font-medium">WhatsApp Business</div>
               <div className="text-xs text-slate-500">Bot de verificación de comprobantes</div>
@@ -227,7 +232,7 @@ function TabConexiones() {
       <div className="rounded-xl border border-slate-200 p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-xl">🏦</span>
+            <Landmark size={22} className="text-slate-500" />
             <div>
               <div className="font-medium">Bancolombia (Gmail)</div>
               <div className="text-xs text-slate-500">Lectura de notificaciones de transferencias</div>
@@ -255,11 +260,14 @@ function TabConexiones() {
                 disabled={syncing}
                 className="btn btn-primary text-sm"
               >
-                {syncing ? '⏳ Sincronizando…' : '🔄 Sincronizar emails ahora'}
+              {syncing
+                ? <span className="flex items-center gap-1.5"><Loader2 size={14} className="animate-spin" /> Sincronizando…</span>
+                : <span className="flex items-center gap-1.5"><RefreshCw size={14} /> Sincronizar emails ahora</span>
+              }
               </button>
             </div>
             <p className="text-xs text-slate-400">
-              ⚡ Las notificaciones push están activas — los emails de Bancolombia se procesan en segundos automáticamente.
+              <Zap size={11} className="inline mb-0.5 text-amber-400" /> Las notificaciones push están activas — los emails de Bancolombia se procesan en segundos automáticamente.
             </p>
           </div>
         )}
@@ -373,7 +381,7 @@ export default function Settings() {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <span>{tab.icon}</span>
+            <tab.Icon size={14} />
             <span>{tab.label}</span>
           </button>
         ))}

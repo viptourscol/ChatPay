@@ -1,4 +1,9 @@
 import { Link } from 'react-router-dom';
+import {
+  Smartphone, Clock, AlertTriangle, Users, TimerOff, DollarSign,
+  CheckCircle, Search, Landmark, Monitor, BarChart2, Download,
+  Pencil, ShieldCheck, Lock
+} from 'lucide-react';
 
 const NAV_LINKS = [
   { href: '#problema', label: 'El Problema' },
@@ -7,23 +12,23 @@ const NAV_LINKS = [
 ];
 
 const PROBLEMS = [
-  { icon: '📱', title: 'Le tomas foto al comprobante', desc: 'El cliente te muestra el comprobante en su celular, le tomas foto y entregas el servicio confiando en que es real.' },
-  { icon: '🕐', title: 'Verificas después, muy tarde', desc: 'Al final del día o al siguiente, cuando tienes tiempo, entras al banco para confirmar. Pero ya es demasiado tarde.' },
-  { icon: '💸', title: 'Descubres pagos falsos', desc: 'Encuentras comprobantes editados, transferencias que nunca llegaron o duplicadas. Ya perdiste el servicio y el dinero.' },
-  { icon: '👥', title: 'Solo tú tienes acceso al banco', desc: 'Tus empleados no pueden verificar porque no tienen acceso a cuentas bancarias. Todo depende de ti.' },
-  { icon: '⏰', title: 'Pierdes tiempo valioso', desc: 'Pasas horas verificando pagos, tiempo que podrías usar para hacer crecer tu negocio.' },
-  { icon: '💰', title: 'Contratas personal solo para esto', desc: 'Necesitas contratar personal de confianza solo para verificar pagos, aumentando costos innecesarios.' }
+  { Icon: Smartphone,    title: 'Le tomas foto al comprobante', desc: 'El cliente te muestra el comprobante en su celular, le tomas foto y entregas el servicio confiando en que es real.' },
+  { Icon: Clock,         title: 'Verificas después, muy tarde', desc: 'Al final del día o al siguiente, cuando tienes tiempo, entras al banco para confirmar. Pero ya es demasiado tarde.' },
+  { Icon: AlertTriangle, title: 'Descubres pagos falsos', desc: 'Encuentras comprobantes editados, transferencias que nunca llegaron o duplicadas. Ya perdiste el servicio y el dinero.' },
+  { Icon: Users,         title: 'Solo tú tienes acceso al banco', desc: 'Tus empleados no pueden verificar porque no tienen acceso a cuentas bancarias. Todo depende de ti.' },
+  { Icon: TimerOff,      title: 'Pierdes tiempo valioso', desc: 'Pasas horas verificando pagos, tiempo que podrías usar para hacer crecer tu negocio.' },
+  { Icon: DollarSign,    title: 'Contratas personal solo para esto', desc: 'Necesitas contratar personal de confianza solo para verificar pagos, aumentando costos innecesarios.' }
 ];
 
 const FEATURES = [
-  '📱 Verificación instantánea por WhatsApp',
-  '🕵️ Detecta comprobantes falsos y duplicados',
-  '🏦 Funciona con Bancolombia',
-  '💻 Dashboard web responsive para administrar',
-  '📊 Ve todos los pagos, montos y empleados',
-  '📥 Descarga reportes y comprobantes',
-  '✏️ Modifica información de pagos',
-  '🔒 Solo tú tienes acceso bancario, nadie más'
+  { Icon: Smartphone,  label: 'Verificación instantánea por WhatsApp' },
+  { Icon: Search,      label: 'Detecta comprobantes falsos y duplicados' },
+  { Icon: Landmark,    label: 'Funciona con Bancolombia' },
+  { Icon: Monitor,     label: 'Dashboard web responsive para administrar' },
+  { Icon: BarChart2,   label: 'Ve todos los pagos, montos y empleados' },
+  { Icon: Download,    label: 'Descarga reportes y comprobantes' },
+  { Icon: Pencil,      label: 'Modifica información de pagos' },
+  { Icon: Lock,        label: 'Solo tú tienes acceso bancario, nadie más' },
 ];
 
 const STEPS = [
@@ -54,7 +59,7 @@ export default function Landing() {
       {/* HERO */}
       <section className="pt-32 pb-24 px-6 bg-gradient-to-b from-slate-50 to-white text-center">
         <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 text-xs text-slate-600 mb-8 shadow-sm">
-          📱 Verificación por WhatsApp
+          <Smartphone size={13} /> Verificación por WhatsApp
         </div>
         <h1 className="text-5xl md:text-6xl font-serif leading-tight max-w-3xl mx-auto">
           <em className="not-italic font-serif italic">Verifica</em> transferencias<br />desde WhatsApp
@@ -78,7 +83,9 @@ export default function Landing() {
           <div className="grid md:grid-cols-3 gap-5">
             {PROBLEMS.map((p) => (
               <div key={p.title} className="card hover:shadow-md transition">
-                <div className="text-2xl mb-3">{p.icon}</div>
+                <div className="w-10 h-10 rounded-xl bg-slate-100 grid place-items-center mb-3 text-slate-600">
+                  <p.Icon size={20} />
+                </div>
                 <h3 className="font-semibold mb-2">{p.title}</h3>
                 <p className="text-sm text-slate-500 leading-relaxed">{p.desc}</p>
               </div>
@@ -96,9 +103,9 @@ export default function Landing() {
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
             {FEATURES.map((f) => (
-              <div key={f} className="bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm flex items-start gap-2">
-                <span className="text-brand-500 mt-0.5">✓</span>
-                <span>{f}</span>
+              <div key={f.label} className="bg-white rounded-xl border border-slate-200 px-4 py-3 text-sm flex items-center gap-2">
+                <f.Icon size={15} className="text-brand-500 shrink-0" />
+                <span>{f.label}</span>
               </div>
             ))}
           </div>
@@ -106,17 +113,17 @@ export default function Landing() {
           {/* 3 pilares */}
           <div className="grid md:grid-cols-3 gap-6 mt-12">
             <div className="card text-center">
-              <div className="text-3xl mb-3">📱</div>
+              <div className="w-12 h-12 rounded-xl bg-brand-50 grid place-items-center mx-auto mb-3"><Smartphone size={22} className="text-brand-600" /></div>
               <h3 className="font-semibold mb-2">WhatsApp para empleados</h3>
               <p className="text-sm text-slate-500">Tus empleados solo envían la foto del comprobante. En 5 segundos reciben confirmación si es válido o falso.</p>
             </div>
             <div className="card text-center">
-              <div className="text-3xl mb-3">💻</div>
+              <div className="w-12 h-12 rounded-xl bg-brand-50 grid place-items-center mx-auto mb-3"><Monitor size={22} className="text-brand-600" /></div>
               <h3 className="font-semibold mb-2">Dashboard web para ti</h3>
               <p className="text-sm text-slate-500">Desde tu computadora o celular ves todos los pagos, qué empleado los envió, descargas reportes y modificas información.</p>
             </div>
             <div className="card text-center">
-              <div className="text-3xl mb-3">🔒</div>
+              <div className="w-12 h-12 rounded-xl bg-brand-50 grid place-items-center mx-auto mb-3"><ShieldCheck size={22} className="text-brand-600" /></div>
               <h3 className="font-semibold mb-2">Máxima seguridad</h3>
               <p className="text-sm text-slate-500">Solo tú autorizas el correo de notificaciones. Nosotros solo consultamos, nunca movemos dinero. Tus empleados nunca ven datos bancarios.</p>
             </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export default function Register() {
     return (
       <div className="min-h-screen grid place-items-center px-4 bg-gradient-to-b from-brand-50 to-white">
         <div className="w-full max-w-md card text-center">
-          <div className="text-5xl mb-4">✅</div>
+          <div className="flex justify-center mb-4"><CheckCircle2 size={52} className="text-emerald-500" /></div>
           <h2 className="font-serif text-2xl mb-2">¡Cuenta creada!</h2>
           <p className="text-slate-500 text-sm mb-6">
             Revisa tu correo <strong>{form.email}</strong> y confirma tu cuenta. Luego podrás iniciar sesión.

@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
+import {
+  CheckCircle2, XCircle, AlertTriangle, Clock, AlertCircle,
+  ClipboardList, DollarSign, Inbox, RefreshCw, ChevronRight, X
+} from 'lucide-react';
 
 const STATUS_CONFIG = {
-  real:      { label: 'Verificado',  icon: '✅', cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-  fake:      { label: 'Falso',       icon: '❌', cls: 'bg-red-50 text-red-700 border border-red-200' },
-  duplicate: { label: 'Duplicado',   icon: '⚠️', cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  pending:   { label: 'Pendiente',   icon: '⏳', cls: 'bg-slate-100 text-slate-600 border border-slate-200' },
-  error:     { label: 'Error',       icon: '⚙️', cls: 'bg-slate-100 text-slate-600 border border-slate-200' },
+  real:      { label: 'Verificado',  Icon: CheckCircle2,   cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200', iconCls: 'text-emerald-600' },
+  fake:      { label: 'Falso',       Icon: XCircle,        cls: 'bg-red-50 text-red-700 border border-red-200',             iconCls: 'text-red-500' },
+  duplicate: { label: 'Duplicado',   Icon: AlertTriangle,  cls: 'bg-amber-50 text-amber-700 border border-amber-200',       iconCls: 'text-amber-500' },
+  pending:   { label: 'Pendiente',   Icon: Clock,          cls: 'bg-slate-100 text-slate-600 border border-slate-200',      iconCls: 'text-slate-400' },
+  error:     { label: 'Error',       Icon: AlertCircle,    cls: 'bg-slate-100 text-slate-600 border border-slate-200',      iconCls: 'text-slate-400' },
 };
 
 function fmtMoney(n) {
@@ -29,9 +33,11 @@ function initials(name) {
 
 function StatusBadge({ status }) {
   const s = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const { Icon } = s;
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>
-      {s.icon} {s.label}
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>
+      <Icon size={12} className={s.iconCls} />
+      {s.label}
     </span>
   );
 }
@@ -46,13 +52,15 @@ function SummaryBar({ items = [] }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
       {[
-        { icon: '📋', label: 'Total', value: items.length, color: 'bg-slate-100' },
-        { icon: '✅', label: 'Verificados', value: real, color: 'bg-emerald-50', valueClass: 'text-emerald-700' },
-        { icon: '❌', label: 'Falsos / Dup.', value: fake + dup, color: 'bg-red-50', valueClass: 'text-red-600' },
-        { icon: '💰', label: 'Monto verificado', value: fmtMoney(totalAmount), color: 'bg-brand-50', valueClass: 'text-brand-700' },
-      ].map(({ icon, label, value, color, valueClass }) => (
+        { Icon: ClipboardList, label: 'Total',           value: items.length,         color: 'bg-slate-100',   iconCls: 'text-slate-500' },
+        { Icon: CheckCircle2,  label: 'Verificados',     value: real,                 color: 'bg-emerald-50',  iconCls: 'text-emerald-600', valueClass: 'text-emerald-700' },
+        { Icon: XCircle,       label: 'Falsos / Dup.',   value: fake + dup,           color: 'bg-red-50',      iconCls: 'text-red-500',    valueClass: 'text-red-600' },
+        { Icon: DollarSign,    label: 'Monto verificado',value: fmtMoney(totalAmount), color: 'bg-brand-50',    iconCls: 'text-brand-600',  valueClass: 'text-brand-700' },
+      ].map(({ Icon, label, value, color, iconCls, valueClass }) => (
         <div key={label} className="card flex items-center gap-3 py-3">
-          <div className={`w-10 h-10 rounded-xl ${color} grid place-items-center text-lg flex-shrink-0`}>{icon}</div>
+          <div className={`w-10 h-10 rounded-xl ${color} grid place-items-center flex-shrink-0`}>
+            <Icon size={20} className={iconCls} />
+          </div>
           <div className="min-w-0">
             <div className="text-xs text-slate-500 truncate">{label}</div>
             <div className={`text-xl font-semibold truncate ${valueClass || 'text-slate-900'}`}>{value}</div>
@@ -67,19 +75,20 @@ function DetailModal({ v, onClose }) {
   if (!v) return null;
   const s = STATUS_CONFIG[v.status] || STATUS_CONFIG.pending;
   const headerBg = v.status === 'real' ? 'bg-emerald-50' : v.status === 'fake' ? 'bg-red-50' : 'bg-slate-50';
+  const { Icon: StatusIcon } = s;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm grid place-items-center p-4 z-50" onClick={onClose}>
       <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className={`px-6 py-4 flex items-center justify-between ${headerBg}`}>
           <div className="flex items-center gap-3">
-            <div className="text-3xl">{s.icon}</div>
+            <StatusIcon size={28} className={s.iconCls} />
             <div>
               <div className="font-semibold text-slate-900">Comprobante {s.label}</div>
               <div className="text-xs text-slate-500">{fmtDate(v.created_at)}</div>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition"><X size={18} /></button>
         </div>
 
         <div className="px-6 py-5 space-y-4">
@@ -171,12 +180,12 @@ export default function Verifications() {
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
           >
             <option value="">Todos los estados</option>
-            <option value="real">✅ Verificados</option>
-            <option value="fake">❌ Falsos</option>
-            <option value="duplicate">⚠️ Duplicados</option>
-            <option value="error">⚙️ Errores</option>
+            <option value="real">Verificados</option>
+            <option value="fake">Falsos</option>
+            <option value="duplicate">Duplicados</option>
+            <option value="error">Errores</option>
           </select>
-          <button onClick={() => refetch()} className="btn btn-ghost text-sm">↻ Refrescar</button>
+          <button onClick={() => refetch()} className="btn btn-ghost text-sm flex items-center gap-1.5"><RefreshCw size={14} /> Refrescar</button>
         </div>
       </header>
 
@@ -208,7 +217,7 @@ export default function Verifications() {
             {!isLoading && items.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center">
-                  <div className="text-4xl mb-2">📭</div>
+                  <div className="text-4xl mb-2"><Inbox size={40} className="mx-auto text-slate-300" /></div>
                   <div className="text-slate-400 text-sm">Sin verificaciones aún</div>
                 </td>
               </tr>
@@ -232,7 +241,7 @@ export default function Verifications() {
                 <td className="px-4 py-3 font-semibold text-slate-900">{fmtMoney(v.extracted_amount)}</td>
                 <td className="px-4 py-3"><StatusBadge status={v.status} /></td>
                 <td className="px-4 py-3 text-right">
-                  <span className="text-brand-600 text-xs font-medium">Ver →</span>
+                  <span className="text-brand-600 text-xs font-medium flex items-center gap-0.5">Ver <ChevronRight size={12} /></span>
                 </td>
               </tr>
             ))}

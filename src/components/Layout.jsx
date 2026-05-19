@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import {
+  LayoutDashboard, ShieldCheck, TrendingUp, TrendingDown,
+  Users, BarChart2, Settings, LogOut, Building2
+} from 'lucide-react';
 
 const MODULES = [
-  { to: '/dashboard', label: 'Dashboard', icon: '⊞' },
-  { to: '/verificaciones', label: 'Verificaciones', icon: '✅' },
-  { to: '/ingresos', label: 'Ingresos', icon: '📋' },
-  { to: '/egresos', label: 'Egresos', icon: '🖥️' },
-  { to: '/empleados', label: 'Empleados', icon: '👥' },
-  { to: '/reportes', label: 'Reportes', icon: '📥' }
+  { to: '/dashboard',     label: 'Dashboard',      Icon: LayoutDashboard },
+  { to: '/verificaciones',label: 'Verificaciones',  Icon: ShieldCheck },
+  { to: '/ingresos',      label: 'Ingresos',        Icon: TrendingUp },
+  { to: '/egresos',       label: 'Egresos',         Icon: TrendingDown },
+  { to: '/empleados',     label: 'Empleados',       Icon: Users },
+  { to: '/reportes',      label: 'Reportes',        Icon: BarChart2 },
 ];
 
 export default function Layout() {
@@ -57,7 +61,7 @@ export default function Layout() {
 
           {/* Empresa selector */}
           <div className="rounded-lg border border-slate-200 px-3 py-2 mb-3">
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">🏢 Empresa</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5 flex items-center gap-1"><Building2 size={10} /> Empresa</div>
             <div className="text-sm font-medium text-slate-800 truncate">{companyName}</div>
           </div>
 
@@ -86,7 +90,7 @@ export default function Layout() {
                   }`
                 }
               >
-                <span className="text-base leading-none">{l.icon}</span>
+                <l.Icon size={16} className="shrink-0" />
                 <span>{l.label}</span>
               </NavLink>
             ))}
@@ -104,7 +108,7 @@ export default function Layout() {
                 }`
               }
             >
-              <span className="text-base leading-none">⚙️</span>
+              <Settings size={16} className="shrink-0" />
               <span>Configuración</span>
             </NavLink>
           </div>
@@ -116,7 +120,7 @@ export default function Layout() {
             onClick={logout}
             className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 transition"
           >
-            <span>↪</span>
+            <LogOut size={15} />
             <span>Cerrar Sesión</span>
           </button>
           <div className="flex items-center gap-2 px-3 py-2 mt-1">

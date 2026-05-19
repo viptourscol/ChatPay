@@ -10,8 +10,14 @@ create table if not exists public.system_state (
 -- Solo service_role puede escribir; usuarios autenticados pueden leer
 alter table public.system_state enable row level security;
 
-create policy "auth read system_state" on public.system_state
-  for select using (auth.role() = 'authenticated');
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where tablename = 'system_state' and policyname = 'auth read system_state'
+  ) then
+    execute 'create policy "auth read system_state" on public.system_state for select using (auth.role() = ''authenticated'')';
+  end if;
+end $$;
 
 -- Valor inicial para el historyId de Gmail (se sobrescribirá en el primer watch)
 insert into public.system_state (key, value)
