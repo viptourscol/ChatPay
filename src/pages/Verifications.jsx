@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import {
   CheckCircle2, XCircle, AlertTriangle, Clock, AlertCircle,
-  ClipboardList, DollarSign, Inbox, RefreshCw, ChevronRight, X
+  ClipboardList, DollarSign, Inbox, RefreshCw, ChevronRight, X,
+  ZoomIn, Maximize2, ExternalLink
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -71,7 +72,44 @@ function SummaryBar({ items = [] }) {
   );
 }
 
-function DetailModal({ v, onClose }) {
+// ─── Lightbox ────────────────────────────────────────────────────
+function Lightbox({ src, onClose }) {
+  if (!src) return null;
+  return (
+    <div
+      className="fixed inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="absolute top-4 right-4 flex gap-2">
+        <a
+          href={src}
+          target="_blank"
+          rel="noreferrer"
+          onClick={e => e.stopPropagation()}
+          className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition text-white text-xs px-3 py-1.5 rounded-lg"
+        >
+          <ExternalLink size={13} /> Abrir original
+        </a>
+        <button
+          onClick={onClose}
+          className="bg-white/10 hover:bg-white/20 transition text-white p-1.5 rounded-lg"
+        >
+          <X size={18} />
+        </button>
+      </div>
+      <img
+        src={src}
+        alt="comprobante ampliado"
+        className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      />
+      <p className="text-white/40 text-xs mt-3">Haz clic fuera de la imagen para cerrar</p>
+    </div>
+  );
+}
+
+// ─── Detail Modal ─────────────────────────────────────────────────
+  const [lightbox, setLightbox] = useState(null);
   if (!v) return null;
   const s = STATUS_CONFIG[v.status] || STATUS_CONFIG.pending;
   const headerBg = v.status === 'real' ? 'bg-emerald-50' : v.status === 'fake' ? 'bg-red-50' : 'bg-slate-50';
@@ -136,13 +174,22 @@ function DetailModal({ v, onClose }) {
           {v.comprobante_signed_url && (
             <div>
               <div className="text-xs text-slate-400 mb-2">Imagen del comprobante</div>
-              <img
-                src={v.comprobante_signed_url}
-                alt="comprobante"
-                className="w-full max-h-64 object-contain rounded-xl border border-slate-100 bg-slate-50"
-              />
+              <div className="relative group cursor-zoom-in" onClick={() => setLightbox(v.comprobante_signed_url)}>
+                <img
+                  src={v.comprobante_signed_url}
+                  alt="comprobante"
+                  className="w-full max-h-64 object-contain rounded-xl border border-slate-100 bg-slate-50 transition group-hover:brightness-90"
+                />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                  <div className="bg-black/60 text-white rounded-xl px-4 py-2 flex items-center gap-2 text-sm font-medium backdrop-blur-sm">
+                    <Maximize2 size={16} /> Ver en grande
+                  </div>
+                </div>
+              </div>
             </div>
           )}
+
+          {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
 
           {v.notes && (
             <div className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
