@@ -81,6 +81,7 @@ create table if not exists public.subscriptions (
 );
 
 alter table public.subscriptions enable row level security;
+drop policy if exists "auth read subscriptions" on public.subscriptions;
 create policy "auth read subscriptions" on public.subscriptions
   for select using (auth.role() = 'authenticated');
 
@@ -88,6 +89,7 @@ create policy "auth read subscriptions" on public.subscriptions
 -- 7. Actualizar RLS — employees
 -- ============================
 drop policy if exists "auth read employees" on public.employees;
+drop policy if exists "company read employees" on public.employees;
 
 create policy "company read employees" on public.employees
   for select using (
@@ -100,6 +102,7 @@ create policy "company read employees" on public.employees
 -- 8. Actualizar RLS — transactions
 -- ============================
 drop policy if exists "auth read transactions" on public.transactions;
+drop policy if exists "company read transactions" on public.transactions;
 
 create policy "company read transactions" on public.transactions
   for select using (
@@ -112,6 +115,7 @@ create policy "company read transactions" on public.transactions
 -- 9. Actualizar RLS — verifications
 -- ============================
 drop policy if exists "auth read verifications" on public.verifications;
+drop policy if exists "company read verifications" on public.verifications;
 
 create policy "company read verifications" on public.verifications
   for select using (
