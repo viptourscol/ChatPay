@@ -1,4 +1,20 @@
-import { useEffect, useState } from 'react';\nimport { Routes, Route, Navigate } from 'react-router-dom';\nimport { supabase } from './lib/supabase.js';\nimport Landing from './pages/Landing.jsx';\nimport Login from './pages/Login.jsx';\nimport Register from './pages/Register.jsx';\nimport Layout from './components/Layout.jsx';\nimport Dashboard from './pages/Dashboard.jsx';\nimport Verifications from './pages/Verifications.jsx';\nimport Employees from './pages/Employees.jsx';\nimport Reports from './pages/Reports.jsx';\nimport Ingresos from './pages/Ingresos.jsx';\nimport Egresos from './pages/Egresos.jsx';\nimport Settings from './pages/Settings.jsx';\nimport Admin from './pages/Admin.jsx';\n\nconst SUPER_ADMIN_EMAIL = 'pagosviptourscol@gmail.com';
+﻿import { useEffect, useState } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { supabase } from './lib/supabase.js';
+import Landing from './pages/Landing.jsx';
+import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import Layout from './components/Layout.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import Verifications from './pages/Verifications.jsx';
+import Employees from './pages/Employees.jsx';
+import Reports from './pages/Reports.jsx';
+import Ingresos from './pages/Ingresos.jsx';
+import Egresos from './pages/Egresos.jsx';
+import Settings from './pages/Settings.jsx';
+import Admin from './pages/Admin.jsx';
+
+const SUPER_ADMIN_EMAIL = 'pagosviptourscol@gmail.com';
 
 export default function App() {
   const [session, setSession] = useState(undefined);
