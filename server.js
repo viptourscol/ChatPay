@@ -20,6 +20,7 @@ import gmailSyncHandler from './api/gmail/sync.js';
 import gmailPushHandler from './api/gmail/push.js';
 import gmailWatchHandler from './api/gmail/watch.js';
 import adminCompaniesHandler from './api/admin/companies.js';
+import bankAccountsHandler from './api/bank-accounts/index.js';
 
 const app = express();
 app.use(cors());
@@ -41,6 +42,7 @@ app.all('/api/gmail/sync', adapt(gmailSyncHandler));
 app.all('/api/gmail/push', adapt(gmailPushHandler));
 app.all('/api/gmail/watch', adapt(gmailWatchHandler));
 app.all('/api/admin/companies', adapt(adminCompaniesHandler));
+app.all('/api/bank-accounts', adapt(bankAccountsHandler));
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 

@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabase.js';
 import {
   Building2, Users, Mail, Tag, Code2,
   Clipboard, Check, User, Lock, Smartphone, Landmark,
-  RefreshCw, Loader2, CheckCircle2, Save, Zap
+  RefreshCw, Loader2, CheckCircle2, Save, Zap,
+  PlusCircle, Trash2, CreditCard
 } from 'lucide-react';
 
 const TAX_REGIMES = [
@@ -217,6 +218,110 @@ function TabUsuarios() {
 }
 
 // ─── Tab: Conexiones ─────────────────────────────────────────────
+// ─── Tab: Conexiones ────────────────────────────────────────────
+const BANKS = ['Bancolombia', 'Nequi', 'Daviplata', 'Davivienda', 'BBVA', 'Banco de Bogotá', 'Av Villas', 'Banco Popular', 'Otro'];
+
+function TabBankAccounts() {
+  const qc = useQueryClient();
+  const { data: accounts = [], isLoading } = useQuery({
+    queryKey: ['bank-accounts'],
+    queryFn: () => api('/api/bank-accounts'),
+  });
+  const [form, setForm] = useState({ label: '', bank_name: 'Bancolombia', bancolombia_email: '' });
+  const [adding, setAdding] = useState(false);
+  const [err, setErr] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const handleAdd = async () => {
+    if (!form.bancolombia_email.trim()) return setErr('El email es requerido');
+    setAdding(true); setErr(null);
+    try {
+      await api('/api/bank-accounts', { method: 'POST', body: form });
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+      setForm({ label: '', bank_name: 'Bancolombia', bancolombia_email: '' });
+    } catch (e) { setErr(e.message); }
+    finally { setAdding(false); }
+  };
+
+  const handleDelete = async (id) => {
+    setDeletingId(id);
+    try {
+      await fetch(`/api/bank-accounts?id=${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }
+      });
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+    } finally { setDeletingId(null); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-800 flex items-center gap-2"><CreditCard size={16} /> Cuentas bancarias</h3>
+        <span className="text-xs text-slate-400">{accounts.length} cuenta{accounts.length !== 1 ? 's' : ''} registrada{accounts.length !== 1 ? 's' : ''}</span>
+      </div>
+      <p className="text-xs text-slate-500">Agrega los correos donde tus bancos envían las alertas de pago. ChatPay los usa para identificar automáticamente a qué empresa corresponde cada pago.</p>
+
+      {/* Lista de cuentas */}
+      {isLoading ? (
+        <div className="text-slate-400 text-sm py-4 text-center"><Loader2 size={14} className="animate-spin inline mr-2" />Cargando…</div>
+      ) : accounts.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 py-6 text-center text-slate-400 text-sm">
+          No hay cuentas registradas aún. Agrega la primera abajo.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {accounts.map((acct) => (
+            <div key={acct.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 animate-fade-in">
+              <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 grid place-items-center shrink-0">
+                <CreditCard size={15} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-slate-800 truncate">{acct.label || acct.bank_name}</div>
+                <div className="text-xs text-slate-500 font-mono truncate">{acct.bancolombia_email}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">{acct.bank_name}</div>
+              </div>
+              <button
+                onClick={() => handleDelete(acct.id)}
+                disabled={deletingId === acct.id}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all active:scale-90"
+                title="Eliminar cuenta"
+              >
+                {deletingId === acct.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Formulario agregar */}
+      <div className="rounded-xl border border-slate-200 p-4 space-y-3 bg-white">
+        <div className="text-sm font-medium text-slate-700 flex items-center gap-1.5"><PlusCircle size={14} className="text-brand-600" /> Agregar cuenta</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Banco</label>
+            <select className="input" value={form.bank_name} onChange={(e) => setForm((f) => ({ ...f, bank_name: e.target.value }))}>
+              {BANKS.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Etiqueta (opcional)</label>
+            <input className="input" placeholder="Ej: Cuenta nómina" value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Correo donde el banco envía las alertas</label>
+          <input className="input" type="email" placeholder="Ej: mipago@gmail.com" value={form.bancolombia_email} onChange={(e) => setForm((f) => ({ ...f, bancolombia_email: e.target.value }))} />
+        </div>
+        {err && <p className="text-red-600 text-xs">⚠️ {err}</p>}
+        <button onClick={handleAdd} disabled={adding} className="btn btn-primary w-full">
+          {adding ? <><Loader2 size={14} className="animate-spin" /> Agregando…</> : <><PlusCircle size={14} /> Agregar cuenta</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TabConexiones() {
   const [user, setUser] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -310,6 +415,11 @@ function TabConexiones() {
             {syncResult.text}
           </div>
         )}
+      </div>
+
+      {/* Cuentas bancarias múltiples */}
+      <div className="rounded-xl border border-slate-200 p-4">
+        <TabBankAccounts />
       </div>
     </div>
   );
