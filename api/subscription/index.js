@@ -14,28 +14,60 @@ const BASE_PRICES = { starter: 49900, business: 129900, enterprise: 299900 };
 const DISCOUNTS   = { 1: 0, 3: 5, 6: 10, 12: 15 };
 const PLAN_LABELS = { starter: 'Starter', business: 'Business', enterprise: 'Enterprise' };
 
-async function createBoldLink({ amount, description, orderId, callbackUrl }) {
+/**
+ * Crea un link de pago en Bold.
+ * Docs: POST https://integrations.api.bold.co/online/link/v1
+ *
+ * Notas según documentación oficial:
+ * - amount_type: "CLOSE" (el comerciante establece el monto)
+ * - expiration_date: nanosegundos Unix (Date.now() * 1e6)
+ * - payment_methods: CREDIT_CARD | PSE | BOTON_BANCOLOMBIA | NEQUI
+ * - callback_url: debe iniciar con https://
+ * - description: 2–100 caracteres
+ */
+async function createBoldLink({ amount, description, callbackUrl }) {
   const BOLD_API_KEY = process.env.BOLD_API_KEY;
-  if (!BOLD_API_KEY) throw new Error('BOLD_API_KEY no configurada.');
+  if (!BOLD_API_KEY) throw new Error('BOLD_API_KEY no configurada en las variables de entorno.');
+
+  // expiration_date en nanosegundos Unix (24 horas desde ahora)
+  const expirationNs = (Date.now() + 24 * 60 * 60 * 1000) * 1_000_000;
+
+  // Truncar descripción a 100 caracteres (límite de la API)
+  const desc = description.slice(0, 100);
 
   const body = {
-    amount:          { local: { total: amount, currency: 'COP' } },
-    description,
-    expiration_date: Math.floor(Date.now() / 1000) + 86400,
-    order_id:        orderId,
-    redirect_url:    callbackUrl,
+    amount_type: 'CLOSE',
+    amount: {
+      currency:     'COP',
+      total_amount: amount,
+    },
+    description:     desc,
+    expiration_date: expirationNs,
     callback_url:    callbackUrl,
-    payment_methods: ['CARD', 'PSE', 'NEQUI'],
+    payment_methods: ['CREDIT_CARD', 'PSE', 'BOTON_BANCOLOMBIA', 'NEQUI'],
   };
 
-  const r = await fetch('https://integrations.api.bold.co/online/link/v1/payment-links', {
+  const r = await fetch('https://integrations.api.bold.co/online/link/v1', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `x-api-key ${BOLD_API_KEY}` },
-    body:    JSON.stringify(body),
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization:  `x-api-key ${BOLD_API_KEY}`,
+    },
+    body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`Bold ${r.status}: ${await r.text()}`);
-  const data = await r.json();
-  return data?.payload?.url || data?.payload?.payment_link || data?.url;
+
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    const errMsg = data?.errors?.map(e => e.message || JSON.stringify(e)).join(', ') || r.status;
+    throw new Error(`Bold API ${r.status}: ${errMsg}`);
+  }
+
+  // La respuesta es: { payload: { payment_link: "LNK_...", url: "https://..." }, errors: [] }
+  return {
+    url:          data?.payload?.url,
+    payment_link: data?.payload?.payment_link,
+  };
 }
 
 /* ─── Handler ─────────────────────────────────────────── */
@@ -89,22 +121,28 @@ export default async function handler(req, res) {
       .from('companies').select('id, name').eq('user_id', user.id).maybeSingle();
 
     const companyId   = company?.id || user.id;
-    const orderId     = `chatpay-${companyId.slice(0,8)}-${plan}-${m}m-${Date.now()}`;
     const appUrl      = process.env.VITE_APP_URL || 'https://chat-pay-six.vercel.app';
-    const callbackUrl = `${appUrl}/suscripcion?payment=success&plan=${plan}&months=${m}&order=${orderId}`;
-    const description = `ChatPay · Plan ${PLAN_LABELS[plan]} · ${m} mes${m>1?'es':''}${discount>0?` (${discount}% desc.)`:''}`;
+    const callbackUrl = `${appUrl}/suscripcion?payment=success&plan=${plan}&months=${m}`;
+    const description = `ChatPay Plan ${PLAN_LABELS[plan]} ${m}mes${discount > 0 ? ` -${discount}%` : ''}`;
 
-    let url;
+    let boldResult;
     try {
-      url = await createBoldLink({ amount: total, description, orderId, callbackUrl });
+      boldResult = await createBoldLink({ amount: total, description, callbackUrl });
     } catch (err) {
       console.error('[subscription/payment] Bold error:', err.message);
       return res.status(502).json({ error: `No se pudo crear el link de pago: ${err.message}` });
     }
 
-    if (!url) return res.status(502).json({ error: 'Bold no devolvió una URL de pago.' });
+    if (!boldResult?.url) return res.status(502).json({ error: 'Bold no devolvió una URL de pago.' });
 
-    return res.json({ url, orderId, amount: total, plan, months: m, discount });
+    return res.json({
+      url:          boldResult.url,
+      payment_link: boldResult.payment_link,
+      amount:       total,
+      plan,
+      months:       m,
+      discount,
+    });
   }
 
   return res.status(405).end();
