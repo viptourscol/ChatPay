@@ -39,14 +39,14 @@ function TabEmpresa() {
 
   // Inicializar form cuando lleguen datos
   if (data && !form) {
-    setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '', bancolombia_email: data.bancolombia_email || '' });
+    setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '', bancolombia_email: data.bancolombia_email || '', notification_whatsapp: data.notification_whatsapp || '' });
   }
 
   const mutation = useMutation({
     mutationFn: (body) => api('/api/settings', { method: 'PUT', body }),
     onSuccess: (result) => {
       // Actualizar form con datos guardados para reflejar lo que devolvió el servidor
-      setForm({ name: result.name || '', nit: result.nit || '', tax_regime: result.tax_regime || '', address: result.address || '', phone: result.phone || '', bancolombia_email: result.bancolombia_email || '' });
+      setForm({ name: result.name || '', nit: result.nit || '', tax_regime: result.tax_regime || '', address: result.address || '', phone: result.phone || '', bancolombia_email: result.bancolombia_email || '', notification_whatsapp: result.notification_whatsapp || '' });
       qc.invalidateQueries({ queryKey: ['settings'] });
       setSaved(true);
       setSaveError(null);
@@ -103,6 +103,29 @@ function TabEmpresa() {
         <p className="text-xs text-emerald-500 mt-2">
           Plan actual: <strong className="capitalize">{data.plan || 'free'}</strong> · Máx. {data.max_employees ?? 3} empleados
         </p>
+      </div>
+
+      {/* Número de notificación WhatsApp */}
+      <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4 mb-6">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-medium text-indigo-700 flex items-center gap-1.5">
+            <Smartphone size={14} /> Número de notificación WhatsApp
+          </div>
+          {form.notification_whatsapp && (
+            <span className="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">Activo</span>
+          )}
+        </div>
+        <p className="text-xs text-indigo-600 mb-2">
+          Opcional. Cuando se verifique un pago, ChatPay también enviará un resumen a este número. Ideal para que el dueño lleve un historial en WhatsApp.
+        </p>
+        <input
+          className="input w-full bg-white"
+          value={form.notification_whatsapp || ''}
+          onChange={(e) => set('notification_whatsapp', e.target.value)}
+          placeholder="+573001234567"
+          type="tel"
+        />
+        <p className="text-xs text-indigo-400 mt-1.5">Formato internacional: +57 seguido de 10 dígitos. Deja vacío para desactivar.</p>
       </div>
 
       <div className="space-y-4">

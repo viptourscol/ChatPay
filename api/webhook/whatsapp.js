@@ -233,6 +233,45 @@ export default async function handler(req, res) {
 
     await sendMessage(from, responseText);
 
+    // --- Notificación al número configurado por el admin (opcional) ---
+    try {
+      const { data: co } = await supabaseAdmin
+        .from('companies')
+        .select('notification_whatsapp, name')
+        .eq('id', companyId)
+        .maybeSingle();
+
+      if (co?.notification_whatsapp) {
+        const notifTo = co.notification_whatsapp.replace(/^\+/, '');
+        const statusLabel = {
+          real:      '✅ Verificado',
+          duplicate: '⚠️ Duplicado',
+          not_found: '❓ No encontrado',
+          error:     '🚫 Error',
+        }[status] ?? status;
+        const fmtAmt = extracted.amount
+          ? `$${Number(extracted.amount).toLocaleString('es-CO')}`
+          : 'monto desconocido';
+        const fmtDate = transaction?.transaction_date
+          ? new Date(transaction.transaction_date).toLocaleString('es-CO', {
+              timeZone: 'America/Bogota', day: '2-digit', month: '2-digit',
+              year: 'numeric', hour: '2-digit', minute: '2-digit'
+            })
+          : null;
+        const lines = [
+          `📋 *Pago verificado — ${co.name}*`,
+          `👤 Empleado: ${employee.name}`,
+          `💰 Monto: ${fmtAmt}`,
+          extracted.reference ? `🔑 Referencia: ${extracted.reference}` : null,
+          fmtDate            ? `📅 Fecha: ${fmtDate}`                   : null,
+          `📊 Estado: ${statusLabel}`,
+        ].filter(Boolean).join('\n');
+        await sendMessage(notifTo, lines);
+      }
+    } catch (notifErr) {
+      console.error('[webhook] notif-admin error:', notifErr.message);
+    }
+
     await supabaseAdmin.from('verifications').insert({
       employee_id: employee.id,
       company_id: companyId,
