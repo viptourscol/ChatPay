@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { PaymentRequiredError } from '../lib/api.js';
+import PaymentWall from './PaymentWall.jsx';
 import {
   LayoutDashboard, ShieldCheck, TrendingUp, TrendingDown,
   Users, BarChart2, Settings, LogOut, Building2, ShieldAlert, CreditCard
@@ -20,9 +22,10 @@ const MODULES = [
 
 export default function Layout() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [company, setCompany] = useState(null);
+  const [user,        setUser]        = useState(null);
+  const [company,     setCompany]     = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [suspended,   setSuspended]   = useState(null); // { company } si cuenta suspendida
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user || null));
@@ -30,11 +33,28 @@ export default function Layout() {
 
   useEffect(() => {
     if (!user) return;
-    // Cargar nombre de empresa desde settings
     import('../lib/api.js').then(({ api }) =>
-      api('/api/settings').then((s) => setCompany(s)).catch(() => {})
+      api('/api/settings')
+        .then((s) => setCompany(s))
+        .catch((err) => {
+          if (err instanceof PaymentRequiredError) {
+            setSuspended({ company: err.company });
+          }
+        })
     );
   }, [user]);
+
+  // También interceptar errores 402 globalmente via evento personalizado
+  useEffect(() => {
+    function onPaymentRequired(e) { setSuspended({ company: e.detail?.company || null }); }
+    window.addEventListener('chatpay:payment_required', onPaymentRequired);
+    return () => window.removeEventListener('chatpay:payment_required', onPaymentRequired);
+  }, []);
+
+  if (suspended) {
+    const handleSignOut = async () => { await supabase.auth.signOut(); navigate('/login', { replace: true }); };
+    return <PaymentWall companyInfo={suspended.company} onSignOut={handleSignOut} />;
+  }
 
   const logout = async () => {
     await supabase.auth.signOut();
