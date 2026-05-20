@@ -67,7 +67,7 @@ export default function PaymentWall({ companyInfo = {}, onSignOut }) {
   const total    = Math.round(base * (1 - duration.discount / 100));
 
   const mutation = useMutation({
-    mutationFn: () => api('/api/payments', {
+    mutationFn: () => api('/api/subscription', {
       method: 'POST',
       body:   { plan: selectedPlan, months: selectedMonths },
     }),
@@ -249,3 +249,4 @@ export default function PaymentWall({ companyInfo = {}, onSignOut }) {
     </div>
   );
 }
+
