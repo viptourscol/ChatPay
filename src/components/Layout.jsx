@@ -50,7 +50,7 @@ export default function Layout() {
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'
-        } shrink-0 bg-white border-r border-slate-200 flex flex-col transition-all duration-200`}
+        } shrink-0 bg-white border-r border-slate-200 flex flex-col transition-all duration-300 animate-fade-in`}
       >
         {/* Logo */}
         <div className="px-5 pt-5 pb-3">
@@ -86,10 +86,10 @@ export default function Layout() {
                 to={l.to}
                 end={l.to === '/dashboard'}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97] ${
                     isActive
                       ? 'bg-brand-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100'
+                      : 'text-slate-600 hover:bg-slate-100 hover:translate-x-0.5'
                   }`
                 }
               >
@@ -104,10 +104,10 @@ export default function Layout() {
             <NavLink
               to="/configuracion"
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97] ${
                   isActive
                     ? 'bg-brand-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100'
+                    : 'text-slate-600 hover:bg-slate-100 hover:translate-x-0.5'
                 }`
               }
             >

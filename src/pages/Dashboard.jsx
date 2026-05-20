@@ -30,15 +30,15 @@ const STATUS_ICON = {
   pending:   { Icon: Clock,         cls: 'text-slate-400' },
 };
 
-function KpiCard({ Icon, label, value, sub, accent, bg }) {
+function KpiCard({ Icon, label, value, sub, accent, bg, delay = 'delay-0' }) {
   return (
-    <div className="card flex items-center gap-4 py-4">
-      <div className={`w-11 h-11 rounded-xl grid place-items-center shrink-0 ${bg || 'bg-slate-100'}`}>
+    <div className={`card flex items-center gap-4 py-4 animate-fade-up ${delay} hover:shadow-md transition-shadow duration-200`}>
+      <div className={`w-11 h-11 rounded-xl grid place-items-center shrink-0 transition-transform duration-200 hover:scale-110 ${bg || 'bg-slate-100'}`}>
         <Icon size={22} className={accent || 'text-slate-500'} />
       </div>
       <div className="min-w-0">
         <div className="text-xs text-slate-400 mb-0.5 truncate">{label}</div>
-        <div className={`text-2xl font-semibold leading-none ${accent || 'text-slate-900'}`}>{value}</div>
+        <div className={`text-2xl font-semibold leading-none animate-count-up ${delay} ${accent || 'text-slate-900'}`}>{value}</div>
         {sub && <div className="text-[11px] text-slate-400 mt-1">{sub}</div>}
       </div>
     </div>
@@ -50,7 +50,7 @@ function BarChart({ daily = [] }) {
   const days = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
 
   return (
-    <div className="card">
+    <div className="card animate-fade-up delay-300">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="font-semibold text-slate-800">Actividad últimos 7 días</h2>
@@ -75,9 +75,9 @@ function BarChart({ daily = [] }) {
                 {total}
               </div>
               <div className="w-full flex flex-col justify-end gap-px rounded overflow-hidden" style={{ height: '120px', background: '#f1f5f9' }}>
-                {hDup  > 0 && <div style={{ height: `${hDup}%`  }} className="bg-amber-400 w-full" />}
-                {hFake > 0 && <div style={{ height: `${hFake}%` }} className="bg-red-400 w-full" />}
-                {hReal > 0 && <div style={{ height: `${hReal}%` }} className="bg-emerald-400 w-full" />}
+                {hDup  > 0 && <div style={{ height: `${hDup}%`  }} className="bg-amber-400 w-full animate-bar-grow" />}
+                {hFake > 0 && <div style={{ height: `${hFake}%` }} className="bg-red-400 w-full animate-bar-grow delay-75" />}
+                {hReal > 0 && <div style={{ height: `${hReal}%` }} className="bg-emerald-400 w-full animate-bar-grow delay-150" />}
               </div>
               <div className="text-[10px] text-slate-500">{dow}</div>
               <div className="text-[9px] text-slate-300">{d.date.slice(5)}</div>
@@ -91,16 +91,16 @@ function BarChart({ daily = [] }) {
 
 function RecentActivity({ items = [] }) {
   return (
-    <div className="card">
+    <div className="card animate-fade-up delay-400">
       <h2 className="font-semibold text-slate-800 mb-4">Actividad reciente</h2>
       {items.length === 0 ? (
         <div className="text-center py-8 text-slate-400 text-sm">Sin actividad registrada aún</div>
       ) : (
         <div className="space-y-3">
-          {items.map((v) => {
+          {items.map((v, _i) => {
             const cfg = STATUS_ICON[v.status] || STATUS_ICON.pending;
             return (
-              <div key={v.id} className="flex items-center gap-3">
+              <div key={v.id} className="flex items-center gap-3 animate-fade-up" style={{ animationDelay: `${_i * 60}ms` }}>
                 <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 text-xs font-bold grid place-items-center shrink-0">
                   {initials(v.employees?.name)}
                 </div>
@@ -138,7 +138,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <header className="mb-6">
+      <header className="mb-6 animate-fade-up">
         <h1 className="font-serif text-3xl">Dashboard</h1>
         <p className="text-slate-500 text-sm">Resumen de actividad en tiempo real.</p>
       </header>
@@ -157,27 +157,28 @@ export default function Dashboard() {
               label="Verificaciones hoy"
               value={data?.today ?? 0}
               sub="Comprobantes procesados"
-              bg="bg-brand-50" accent="text-brand-600"
+              bg="bg-brand-50" accent="text-brand-600" delay="delay-0"
             />
             <KpiCard
               Icon={TrendingUp}
               label="Esta semana"
               value={data?.week ?? 0}
               sub={accuracy != null ? `${accuracy}% aprobadas` : undefined}
-              bg="bg-emerald-50" accent="text-emerald-600"
+              bg="bg-emerald-50" accent="text-emerald-600" delay="delay-75"
             />
             <KpiCard
               Icon={AlertTriangle}
               label="Falsos / duplicados (7d)"
               value={data?.fakes ?? 0}
               sub="Rechazados esta semana"
-              bg="bg-red-50" accent="text-red-500"
+              bg="bg-red-50" accent="text-red-500" delay="delay-150"
             />
             <KpiCard
               Icon={Clock}
               label="Pagos pendientes"
               value={data?.pendingTransactions ?? 0}
               sub="Sin comprobante aún"
+              delay="delay-225"
               bg="bg-amber-50" accent="text-amber-500"
             />
           </div>
