@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import {
   LayoutDashboard, ShieldCheck, TrendingUp, TrendingDown,
-  Users, BarChart2, Settings, LogOut, Building2, ShieldAlert
+  Users, BarChart2, Settings, LogOut, Building2, ShieldAlert, CreditCard
 } from 'lucide-react';
 
 // Email del super admin — debe coincidir con ADMIN_EMAILS en el backend
@@ -101,6 +101,19 @@ export default function Layout() {
 
           {/* Configuración separada */}
           <div className="mt-3 space-y-0.5 border-t border-slate-100 pt-3">
+            <NavLink
+              to="/suscripcion"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97] ${
+                  isActive
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100 hover:translate-x-0.5'
+                }`
+              }
+            >
+              <CreditCard size={16} className="shrink-0" />
+              <span>Suscripción</span>
+            </NavLink>
             <NavLink
               to="/configuracion"
               className={({ isActive }) =>

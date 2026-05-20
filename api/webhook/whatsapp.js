@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../lib/supabase.js';
 import { sendMessage, downloadMedia } from '../../lib/whatsapp.js';
 import { extractComprobanteData } from '../../lib/groq.js';
 import { matchTransaction, buildResponseMessage } from '../../lib/matcher.js';
+import { checkVerificationLimit } from '../../lib/subscription.js';
 
 export const config = { api: { bodyParser: true } };
 
@@ -119,6 +120,13 @@ export default async function handler(req, res) {
 
     // --- Otros tipos que no son imagen ---
     if (message.type !== 'image') {
+      return res.status(200).json({ received: true });
+    }
+
+    // --- Verificar límite de verificaciones del plan ---
+    const verifyLimit = await checkVerificationLimit(companyId);
+    if (!verifyLimit.ok) {
+      await sendMessage(from, `⚠️ ${verifyLimit.reason}`);
       return res.status(200).json({ received: true });
     }
 

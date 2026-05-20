@@ -19,6 +19,7 @@ import settingsHandler from './api/settings/index.js';
 import gmailHandler from './api/gmail.js';
 import adminCompaniesHandler from './api/admin/companies.js';
 import bankAccountsHandler from './api/bank-accounts/index.js';
+import subscriptionHandler from './api/subscription/index.js';
 
 const app = express();
 app.use(cors());
@@ -39,6 +40,7 @@ app.all('/api/settings', adapt(settingsHandler));
 app.all('/api/gmail', adapt(gmailHandler));
 app.all('/api/admin/companies', adapt(adminCompaniesHandler));
 app.all('/api/bank-accounts', adapt(bankAccountsHandler));
+app.all('/api/subscription', adapt(subscriptionHandler));
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 

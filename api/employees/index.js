@@ -1,6 +1,7 @@
 import { requireUser } from '../../lib/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireCompany } from '../../lib/getCompany.js';
+import { checkEmployeeLimit, checkSubscriptionActive } from '../../lib/subscription.js';
 
 export default async function handler(req, res) {
   const user = await requireUser(req, res);
@@ -24,17 +25,9 @@ export default async function handler(req, res) {
     const { name, whatsapp_number } = req.body || {};
     if (!name || !whatsapp_number) return res.status(400).json({ error: 'name y whatsapp_number requeridos' });
 
-    // Verificar límite del plan
-    const { count } = await supabaseAdmin
-      .from('employees')
-      .select('id', { count: 'exact', head: true })
-      .eq('company_id', companyId)
-      .eq('is_active', true);
-    if (count >= company.max_employees) {
-      return res.status(403).json({
-        error: `Tu plan permite máximo ${company.max_employees} empleados activos. Actualiza tu plan para agregar más.`
-      });
-    }
+    // Verificar suscripción y límite del plan
+    const limitCheck = await checkEmployeeLimit(companyId);
+    if (!limitCheck.ok) return res.status(403).json({ error: limitCheck.reason, limitReached: limitCheck.limitReached });
 
     const number = String(whatsapp_number).trim().startsWith('+')
       ? String(whatsapp_number).trim()

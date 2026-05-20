@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireUser } from '../../lib/auth.js';
 import { requireCompany } from '../../lib/getCompany.js';
+import { checkBankAccountLimit } from '../../lib/subscription.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -29,6 +30,9 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { label, bank_name, bancolombia_email } = req.body || {};
     if (!bancolombia_email) return res.status(400).json({ error: 'El email es requerido' });
+
+    const limitCheck = await checkBankAccountLimit(companyId);
+    if (!limitCheck.ok) return res.status(403).json({ error: limitCheck.reason, limitReached: limitCheck.limitReached });
 
     const { data, error } = await supabaseAdmin
       .from('company_bank_accounts')
