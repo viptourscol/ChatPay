@@ -20,7 +20,7 @@ function PlanBadge({ plan }) {
 
 export default function Admin() {
   const qc = useQueryClient();
-  const { data: companies = [], isLoading, refetch } = useQuery({
+  const { data: companies = [], isLoading, error, refetch } = useQuery({
     queryKey: ['admin-companies'],
     queryFn: () => api('/api/admin/companies')
   });
@@ -40,6 +40,7 @@ export default function Admin() {
   }
 
   if (isLoading) return <div className="text-slate-400 py-12 text-center">Cargando…</div>;
+  if (error) return <div className="text-red-600 py-12 text-center bg-red-50 rounded-xl p-6">Error: {error.message}</div>;
 
   return (
     <div>
