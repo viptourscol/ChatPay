@@ -39,14 +39,14 @@ function TabEmpresa() {
 
   // Inicializar form cuando lleguen datos
   if (data && !form) {
-    setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '', bancolombia_email: data.bancolombia_email || '', notification_whatsapp: data.notification_whatsapp || '' });
+    setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '', bancolombia_email: data.bancolombia_email || '', notification_whatsapp: Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : [] });
   }
 
   const mutation = useMutation({
     mutationFn: (body) => api('/api/settings', { method: 'PUT', body }),
     onSuccess: (result) => {
       // Actualizar form con datos guardados para reflejar lo que devolvió el servidor
-      setForm({ name: result.name || '', nit: result.nit || '', tax_regime: result.tax_regime || '', address: result.address || '', phone: result.phone || '', bancolombia_email: result.bancolombia_email || '', notification_whatsapp: result.notification_whatsapp || '' });
+      setForm({ name: result.name || '', nit: result.nit || '', tax_regime: result.tax_regime || '', address: result.address || '', phone: result.phone || '', bancolombia_email: result.bancolombia_email || '', notification_whatsapp: Array.isArray(result.notification_whatsapp) ? result.notification_whatsapp : [] });
       qc.invalidateQueries({ queryKey: ['settings'] });
       setSaved(true);
       setSaveError(null);
@@ -105,27 +105,75 @@ function TabEmpresa() {
         </p>
       </div>
 
-      {/* Número de notificación WhatsApp */}
+      {/* Números de notificación WhatsApp */}
       <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4 mb-6">
         <div className="flex items-center justify-between mb-1">
           <div className="text-sm font-medium text-indigo-700 flex items-center gap-1.5">
-            <Smartphone size={14} /> Número de notificación WhatsApp
+            <Smartphone size={14} /> Números de notificación WhatsApp
           </div>
-          {form.notification_whatsapp && (
-            <span className="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">Activo</span>
+          {form.notification_whatsapp.some(c => c.active) && (
+            <span className="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">
+              {form.notification_whatsapp.filter(c => c.active).length} activo{form.notification_whatsapp.filter(c => c.active).length !== 1 ? 's' : ''}
+            </span>
           )}
         </div>
-        <p className="text-xs text-indigo-600 mb-2">
-          Opcional. Cuando se verifique un pago, ChatPay también enviará un resumen a este número. Ideal para que el dueño lleve un historial en WhatsApp.
+        <p className="text-xs text-indigo-600 mb-3">
+          Cuando se verifique un pago, ChatPay enviará un resumen a los números activos. Puedes pausar alguno sin eliminarlo.
         </p>
-        <input
-          className="input w-full bg-white"
-          value={form.notification_whatsapp || ''}
-          onChange={(e) => set('notification_whatsapp', e.target.value)}
-          placeholder="+573001234567"
-          type="tel"
-        />
-        <p className="text-xs text-indigo-400 mt-1.5">Formato internacional: +57 seguido de 10 dígitos. Deja vacío para desactivar.</p>
+
+        <div className="space-y-2 mb-3">
+          {form.notification_whatsapp.length === 0 && (
+            <p className="text-xs text-indigo-400 italic text-center py-2">Sin números configurados</p>
+          )}
+          {form.notification_whatsapp.map((contact, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-white border border-indigo-100 rounded-lg px-3 py-2">
+              <input
+                className="flex-1 text-sm bg-transparent outline-none text-slate-700 placeholder-slate-400"
+                value={contact.number}
+                onChange={(e) => {
+                  const next = [...form.notification_whatsapp];
+                  next[idx] = { ...next[idx], number: e.target.value };
+                  set('notification_whatsapp', next);
+                }}
+                placeholder="+573001234567"
+                type="tel"
+              />
+              {/* Toggle activo/inactivo */}
+              <button
+                type="button"
+                title={contact.active ? 'Pausar notificaciones' : 'Activar notificaciones'}
+                onClick={() => {
+                  const next = [...form.notification_whatsapp];
+                  next[idx] = { ...next[idx], active: !next[idx].active };
+                  set('notification_whatsapp', next);
+                }}
+                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${contact.active ? 'bg-indigo-500' : 'bg-slate-300'}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${contact.active ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+              <button
+                type="button"
+                title="Eliminar"
+                onClick={() => {
+                  const next = form.notification_whatsapp.filter((_, i) => i !== idx);
+                  set('notification_whatsapp', next);
+                }}
+                className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => set('notification_whatsapp', [...form.notification_whatsapp, { number: '', active: true }])}
+          className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition"
+        >
+          <PlusCircle size={14} /> Agregar número
+        </button>
+        <p className="text-xs text-indigo-400 mt-2">Formato internacional: +57 seguido de 10 dígitos.</p>
       </div>
 
       <div className="space-y-4">

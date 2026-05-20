@@ -233,7 +233,7 @@ export default async function handler(req, res) {
 
     await sendMessage(from, responseText);
 
-    // --- Notificación al número configurado por el admin (opcional) ---
+    // --- Notificación a los números configurados por el admin (opcional) ---
     try {
       const { data: co } = await supabaseAdmin
         .from('companies')
@@ -241,8 +241,11 @@ export default async function handler(req, res) {
         .eq('id', companyId)
         .maybeSingle();
 
-      if (co?.notification_whatsapp) {
-        const notifTo = co.notification_whatsapp.replace(/^\+/, '');
+      const contacts = Array.isArray(co?.notification_whatsapp)
+        ? co.notification_whatsapp.filter(c => c?.active && c?.number)
+        : [];
+
+      if (contacts.length > 0) {
         const statusLabel = {
           real:      '✅ Verificado',
           duplicate: '⚠️ Duplicado',
@@ -266,7 +269,11 @@ export default async function handler(req, res) {
           fmtDate            ? `📅 Fecha: ${fmtDate}`                   : null,
           `📊 Estado: ${statusLabel}`,
         ].filter(Boolean).join('\n');
-        await sendMessage(notifTo, lines);
+
+        for (const contact of contacts) {
+          const notifTo = contact.number.replace(/^\+/, '');
+          await sendMessage(notifTo, lines);
+        }
       }
     } catch (notifErr) {
       console.error('[webhook] notif-admin error:', notifErr.message);
