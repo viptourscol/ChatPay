@@ -16,7 +16,7 @@ import statsHandler from './api/stats/index.js';
 import ingresosHandler from './api/ingresos/index.js';
 import egresosHandler from './api/egresos/index.js';
 import settingsHandler from './api/settings/index.js';
-import gmailHandler from './api/gmail/index.js';
+import gmailHandler from './api/gmail.js';
 import adminCompaniesHandler from './api/admin/companies.js';
 import bankAccountsHandler from './api/bank-accounts/index.js';
 
