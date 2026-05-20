@@ -11,10 +11,6 @@
     {
       "path": "/api/gmail?action=watch",
       "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/gmail?action=sync&minutes=30",
-      "schedule": "*/15 * * * *"
     }
   ]
 }
