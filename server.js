@@ -16,9 +16,7 @@ import statsHandler from './api/stats/index.js';
 import ingresosHandler from './api/ingresos/index.js';
 import egresosHandler from './api/egresos/index.js';
 import settingsHandler from './api/settings/index.js';
-import gmailSyncHandler from './api/gmail/sync.js';
-import gmailPushHandler from './api/gmail/push.js';
-import gmailWatchHandler from './api/gmail/watch.js';
+import gmailHandler from './api/gmail/index.js';
 import adminCompaniesHandler from './api/admin/companies.js';
 import bankAccountsHandler from './api/bank-accounts/index.js';
 
@@ -38,9 +36,7 @@ app.all('/api/stats', adapt(statsHandler));
 app.all('/api/ingresos', adapt(ingresosHandler));
 app.all('/api/egresos', adapt(egresosHandler));
 app.all('/api/settings', adapt(settingsHandler));
-app.all('/api/gmail/sync', adapt(gmailSyncHandler));
-app.all('/api/gmail/push', adapt(gmailPushHandler));
-app.all('/api/gmail/watch', adapt(gmailWatchHandler));
+app.all('/api/gmail', adapt(gmailHandler));
 app.all('/api/admin/companies', adapt(adminCompaniesHandler));
 app.all('/api/bank-accounts', adapt(bankAccountsHandler));
 
