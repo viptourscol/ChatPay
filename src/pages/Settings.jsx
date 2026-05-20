@@ -34,6 +34,7 @@ function TabEmpresa() {
   });
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   // Inicializar form cuando lleguen datos
   if (data && !form) {
@@ -42,7 +43,15 @@ function TabEmpresa() {
 
   const mutation = useMutation({
     mutationFn: (body) => api('/api/settings', { method: 'PUT', body }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['settings'] }); setSaved(true); setTimeout(() => setSaved(false), 3000); }
+    onSuccess: (result) => {
+      // Actualizar form con datos guardados para reflejar lo que devolvió el servidor
+      setForm({ name: result.name || '', nit: result.nit || '', tax_regime: result.tax_regime || '', address: result.address || '', phone: result.phone || '', bancolombia_email: result.bancolombia_email || '' });
+      qc.invalidateQueries({ queryKey: ['settings'] });
+      setSaved(true);
+      setSaveError(null);
+      setTimeout(() => setSaved(false), 3000);
+    },
+    onError: (err) => { setSaveError(err.message || 'Error al guardar'); }
   });
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -124,6 +133,11 @@ function TabEmpresa() {
           <input className="input w-full" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Ej: (601) 234-5678" />
         </div>
 
+        {saveError && (
+          <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-2">
+            ⚠️ Error al guardar: {saveError}
+          </div>
+        )}
         <button
           className="btn btn-primary w-full mt-2"
           onClick={() => mutation.mutate(form)}
