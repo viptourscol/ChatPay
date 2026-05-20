@@ -6,7 +6,7 @@
  * para mantenerse dentro del límite de 12 funciones del plan Hobby de Vercel.
  */
 
-import { syncBancolombiaEmails, saveHistoryId, watchGmailInbox } from '../../lib/gmail.js';
+import { syncBancolombiaEmails, saveHistoryId, watchGmailInbox } from '../lib/gmail.js';
 
 export const config = { api: { bodyParser: true } };
 
