@@ -292,11 +292,11 @@ function TabConexiones() {
               <button
                 onClick={triggerSync}
                 disabled={syncing}
-                className="btn btn-primary text-sm"
+                className="btn btn-primary text-sm group"
               >
               {syncing
                 ? <span className="flex items-center gap-1.5"><Loader2 size={14} className="animate-spin" /> Sincronizando…</span>
-                : <span className="flex items-center gap-1.5"><RefreshCw size={14} /> Sincronizar emails ahora</span>
+                : <span className="flex items-center gap-1.5"><RefreshCw size={14} className="transition-transform duration-300 group-hover:rotate-180" /> Sincronizar emails ahora</span>
               }
               </button>
             </div>
