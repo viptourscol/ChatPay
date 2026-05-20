@@ -195,7 +195,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true });
     }
 
-    const responseText = buildResponseMessage({
+    const responseParams = {
       status,
       employeeName: employee.name,
       amount: extracted.amount,
@@ -203,7 +203,25 @@ export default async function handler(req, res) {
       senderName: transaction?.sender_name || extracted.sender_name,
       transactionDate: transaction?.transaction_date,
       transactionId: transaction?.id
-    });
+    };
+
+    // Para duplicados: buscar quién y cuándo verificó este comprobante antes
+    if (status === 'duplicate' && transaction?.id) {
+      const { data: prevVerif } = await supabaseAdmin
+        .from('verifications')
+        .select('created_at, employees(name)')
+        .eq('transaction_id', transaction.id)
+        .eq('status', 'real')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (prevVerif) {
+        responseParams.verifiedAt = prevVerif.created_at;
+        responseParams.verifiedByName = prevVerif.employees?.name || null;
+      }
+    }
+
+    const responseText = buildResponseMessage(responseParams);
 
     await sendMessage(from, responseText);
 
