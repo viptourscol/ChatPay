@@ -1,6 +1,40 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
+import { ChevronLeft, ChevronRight, TrendingDown, DollarSign, FileText, Pencil, Trash2 } from 'lucide-react';
+
+function Pagination({ page, total, pageSize, onChange }) {
+  const totalPages = Math.ceil(total / pageSize) || 1;
+  if (totalPages <= 1) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to   = Math.min(page * pageSize, total);
+  const pages = [];
+  if (totalPages <= 5) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+  else if (page <= 3) pages.push(1, 2, 3, 4, 5);
+  else if (page >= totalPages - 2) { for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i); }
+  else pages.push(page - 2, page - 1, page, page + 1, page + 2);
+  return (
+    <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+      <span className="text-sm text-slate-500">{from}–{to} de {total} egresos</span>
+      <div className="flex items-center gap-1">
+        <button disabled={page <= 1} onClick={() => onChange(page - 1)}
+          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition">
+          <ChevronLeft size={15} />
+        </button>
+        {pages.map(p => (
+          <button key={p} onClick={() => onChange(p)}
+            className={`w-8 h-8 rounded-lg border text-sm font-medium transition ${
+              p === page ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}>{p}</button>
+        ))}
+        <button disabled={page >= totalPages} onClick={() => onChange(page + 1)}
+          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition">
+          <ChevronRight size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const METHODS = ['transferencia', 'efectivo', 'tarjeta', 'cheque'];
 const CATEGORIES = ['nómina', 'arriendo', 'servicios', 'proveedor', 'otro'];
@@ -166,25 +200,31 @@ export default function Egresos() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="card">
-          <div className="text-sm text-slate-500">Total este mes</div>
-          <div className="text-2xl font-semibold mt-1 text-red-600">{fmtMoney(stats?.monthTotal)}</div>
-          <div className="text-xs text-slate-400 mt-0.5">{stats?.monthCount ?? 0} registros</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-slate-500">Total histórico</div>
-          <div className="text-2xl font-semibold mt-1 text-slate-800">{fmtMoney(stats?.allTotal)}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-slate-500">En este listado</div>
-          <div className="text-2xl font-semibold mt-1 text-slate-800">{data?.total ?? '—'}</div>
-          <div className="text-xs text-slate-400 mt-0.5">registros</div>
-        </div>
+        {[
+          { label: 'Total este mes', value: fmtMoney(stats?.monthTotal), sub: `${stats?.monthCount ?? 0} registros`, color: 'bg-red-50', Icon: TrendingDown, accent: 'text-red-600' },
+          { label: 'Total histórico', value: fmtMoney(stats?.allTotal), color: 'bg-slate-100', Icon: DollarSign, accent: 'text-slate-700' },
+          { label: 'En este listado', value: `${data?.total ?? '—'}`, sub: 'registros', color: 'bg-brand-50', Icon: FileText, accent: 'text-brand-600' },
+        ].map(({ label, value, sub, color, Icon, accent }) => {
+          const str = String(value ?? '');
+          const fs = str.length > 12 ? 'text-base' : str.length > 8 ? 'text-xl' : 'text-2xl';
+          return (
+            <div key={label} className="card flex items-center gap-3 py-3">
+              <div className={`w-10 h-10 rounded-xl ${color} grid place-items-center shrink-0`}>
+                <Icon size={19} className={accent} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-slate-500">{label}</div>
+                <div className={`${fs} font-semibold ${accent} leading-tight break-all`}>{value}</div>
+                {sub && <div className="text-xs text-slate-400">{sub}</div>}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Filtros */}
       <div className="card mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <div>
             <label className="text-xs text-slate-500 mb-1 block">Desde</label>
             <input type="date" className="input w-full" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
@@ -193,7 +233,7 @@ export default function Egresos() {
             <label className="text-xs text-slate-500 mb-1 block">Hasta</label>
             <input type="date" className="input w-full" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
           </div>
-          <div>
+          <div className="sm:col-span-2 md:col-span-1">
             <label className="text-xs text-slate-500 mb-1 block">Categoría</label>
             <select className="input w-full" value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}>
               <option value="">Todas</option>
@@ -207,21 +247,21 @@ export default function Egresos() {
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="card overflow-hidden p-0">
+      {/* Tabla — solo md+ */}
+      <div className="card overflow-hidden p-0 hidden md:block">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left">
+          <thead className="bg-slate-50 border-b border-slate-100 text-left">
             <tr>
-              <th className="px-4 py-3 text-slate-500 font-medium">Fecha</th>
-              <th className="px-4 py-3 text-slate-500 font-medium">Descripción</th>
-              <th className="px-4 py-3 text-slate-500 font-medium">Destinatario</th>
-              <th className="px-4 py-3 text-slate-500 font-medium">Categoría</th>
-              <th className="px-4 py-3 text-slate-500 font-medium">Método</th>
-              <th className="px-4 py-3 text-slate-500 font-medium text-right">Monto</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Destinatario</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Categoría</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Método</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Monto</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-50">
             {isLoading && (
               <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Cargando…</td></tr>
             )}
@@ -229,7 +269,7 @@ export default function Egresos() {
               <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Sin egresos registrados</td></tr>
             )}
             {(data?.items || []).map((e) => (
-              <tr key={e.id} className="border-t border-slate-100 hover:bg-slate-50 transition">
+              <tr key={e.id} className="border-t border-slate-100 hover:bg-slate-50 transition group">
                 <td className="px-4 py-3 whitespace-nowrap">{fmtDate(e.payment_date)}</td>
                 <td className="px-4 py-3">{e.description}</td>
                 <td className="px-4 py-3 text-slate-500">{e.recipient || '—'}</td>
@@ -243,9 +283,9 @@ export default function Egresos() {
                 <td className="px-4 py-3 text-slate-500 capitalize">{e.method}</td>
                 <td className="px-4 py-3 text-right font-semibold text-red-600">{fmtMoney(e.amount)}</td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex gap-2 justify-end">
-                    <button className="text-brand-600 hover:underline text-xs" onClick={() => setModal(e)}>Editar</button>
-                    <button className="text-red-400 hover:underline text-xs" onClick={() => setDeleting(e)}>Eliminar</button>
+                  <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition" title="Editar" onClick={() => setModal(e)}><Pencil size={13}/></button>
+                    <button className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition" title="Eliminar" onClick={() => setDeleting(e)}><Trash2 size={13}/></button>
                   </div>
                 </td>
               </tr>
@@ -254,16 +294,44 @@ export default function Egresos() {
         </table>
       </div>
 
-      {/* Paginación */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 text-sm text-slate-600">
-          <span>Página {page} de {totalPages} · {data?.total} registros</span>
-          <div className="flex gap-2">
-            <button className="btn btn-ghost text-sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>← Anterior</button>
-            <button className="btn btn-ghost text-sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente →</button>
+      {/* Cards — solo móvil */}
+      <div className="space-y-3 md:hidden">
+        {isLoading && (
+          <div className="card text-center py-8 text-slate-400">
+            <div className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            Cargando…
           </div>
-        </div>
-      )}
+        )}
+        {!isLoading && (data?.items || []).length === 0 && (
+          <div className="card text-center py-10 text-slate-400">Sin egresos registrados</div>
+        )}
+        {(data?.items || []).map((e) => (
+          <div key={e.id} className="card">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-slate-800 truncate">{e.description}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{fmtDate(e.payment_date)}{e.recipient && ` · ${e.recipient}`}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="font-bold text-red-600 text-lg">{fmtMoney(e.amount)}</div>
+                {e.category && (
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium mt-0.5 ${CATEGORY_COLORS[e.category] || 'bg-slate-100 text-slate-700'}`}>{e.category}</span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="capitalize">{e.method}</span>
+              <div className="flex gap-2">
+                <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition" onClick={() => setModal(e)}><Pencil size={12}/> Editar</button>
+                <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition" onClick={() => setDeleting(e)}><Trash2 size={12}/> Eliminar</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Paginación */}
+      <Pagination page={page} total={data?.total || 0} pageSize={data?.pageSize || 20} onChange={setPage} />
 
       {/* Modal crear/editar */}
       {modal && (

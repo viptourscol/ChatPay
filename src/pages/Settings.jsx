@@ -584,19 +584,19 @@ export default function Settings() {
         <p className="text-slate-500 text-sm">Gestión de la información y configuración de tu cuenta.</p>
       </header>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 mb-6 overflow-x-auto">
+      {/* Tabs — segment control */}
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-6 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition -mb-px ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium whitespace-nowrap rounded-lg transition-all duration-150 ${
               activeTab === tab.id
-                ? 'border-brand-600 text-brand-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'bg-white shadow-sm text-brand-700 shadow-slate-200'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white/60'
             }`}
           >
-            <tab.Icon size={14} />
+            <tab.Icon size={14} aria-hidden />
             <span>{tab.label}</span>
           </button>
         ))}

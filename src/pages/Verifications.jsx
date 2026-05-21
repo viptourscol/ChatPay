@@ -4,8 +4,14 @@ import { api } from '../lib/api.js';
 import {
   CheckCircle2, XCircle, AlertTriangle, Clock, AlertCircle,
   ClipboardList, DollarSign, Inbox, RefreshCw, ChevronRight, X,
-  ZoomIn, Maximize2, ExternalLink
+  Maximize2, ExternalLink, Filter, ChevronLeft
 } from 'lucide-react';
+
+const _today = new Date();
+const todayISO = _today.toISOString().slice(0, 10);
+const todayFull = `${todayISO}T00:00:00`;
+const todayEnd  = `${todayISO}T23:59:59`;
+const PAGE_SIZE = 25;
 
 const STATUS_CONFIG = {
   real:      { label: 'Verificado',  Icon: CheckCircle2,   cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200', iconCls: 'text-emerald-600' },
@@ -18,6 +24,13 @@ const STATUS_CONFIG = {
 function fmtMoney(n) {
   if (n == null) return '—';
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+}
+function fmtMoneyCompact(n) {
+  if (n == null) return '—';
+  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1).replace('.0', '')}B`;
+  if (n >= 1_000_000)     return `$${(n / 1_000_000).toFixed(1).replace('.0', '')}M`;
+  if (n >= 100_000)       return `$${(n / 1_000).toFixed(0)}K`;
+  return fmtMoney(n);
 }
 function fmtDate(s) {
   if (!s) return '—';
@@ -49,25 +62,64 @@ function SummaryBar({ items = [] }) {
   const dup  = items.filter(v => v.status === 'duplicate').length;
   const totalAmount = items.filter(v => v.status === 'real')
     .reduce((s, v) => s + Number(v.extracted_amount || 0), 0);
+  const montoStr = fmtMoneyCompact(totalAmount);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
       {[
-        { Icon: ClipboardList, label: 'Total',           value: items.length,         color: 'bg-slate-100',   iconCls: 'text-slate-500' },
-        { Icon: CheckCircle2,  label: 'Verificados',     value: real,                 color: 'bg-emerald-50',  iconCls: 'text-emerald-600', valueClass: 'text-emerald-700' },
-        { Icon: XCircle,       label: 'Falsos / Dup.',   value: fake + dup,           color: 'bg-red-50',      iconCls: 'text-red-500',    valueClass: 'text-red-600' },
-        { Icon: DollarSign,    label: 'Monto verificado',value: fmtMoney(totalAmount), color: 'bg-brand-50',    iconCls: 'text-brand-600',  valueClass: 'text-brand-700' },
-      ].map(({ Icon, label, value, color, iconCls, valueClass }) => (
-        <div key={label} className="card flex items-center gap-3 py-3">
-          <div className={`w-10 h-10 rounded-xl ${color} grid place-items-center flex-shrink-0`}>
-            <Icon size={20} className={iconCls} />
+        { Icon: ClipboardList, label: 'Total',            value: items.length, color: 'bg-slate-100',   iconCls: 'text-slate-500',   valueClass: 'text-slate-900' },
+        { Icon: CheckCircle2,  label: 'Verificados',      value: real,         color: 'bg-emerald-50',  iconCls: 'text-emerald-600', valueClass: 'text-emerald-700' },
+        { Icon: XCircle,       label: 'Falsos / Dup.',    value: fake + dup,   color: 'bg-red-50',      iconCls: 'text-red-500',     valueClass: 'text-red-600' },
+        { Icon: DollarSign,    label: 'Monto verificado', value: montoStr,     color: 'bg-brand-50',    iconCls: 'text-brand-600',   valueClass: 'text-brand-700', isMoney: true },
+      ].map(({ Icon, label, value, color, iconCls, valueClass, isMoney }) => {
+        const str = String(value ?? '');
+        const fs = isMoney ? (str.length > 10 ? 'text-base' : str.length > 7 ? 'text-lg' : 'text-xl') : 'text-xl';
+        return (
+          <div key={label} className="card flex items-center gap-3 py-3">
+            <div className={`w-10 h-10 rounded-xl ${color} grid place-items-center flex-shrink-0`}>
+              <Icon size={20} className={iconCls} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs text-slate-500 truncate">{label}</div>
+              <div className={`${fs} font-semibold leading-tight break-all ${valueClass || 'text-slate-900'}`}>{value}</div>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-xs text-slate-500 truncate">{label}</div>
-            <div className={`text-xl font-semibold truncate ${valueClass || 'text-slate-900'}`}>{value}</div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Pagination ───────────────────────────────────────────────────
+function Pagination({ page, total, pageSize, onChange }) {
+  const totalPages = Math.ceil(total / pageSize) || 1;
+  if (totalPages <= 1) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to   = Math.min(page * pageSize, total);
+  const pages = [];
+  if (totalPages <= 5) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+  else if (page <= 3) pages.push(1, 2, 3, 4, 5);
+  else if (page >= totalPages - 2) { for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i); }
+  else pages.push(page - 2, page - 1, page, page + 1, page + 2);
+  return (
+    <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+      <span className="text-sm text-slate-500">{from}–{to} de {total} verificaciones</span>
+      <div className="flex items-center gap-1">
+        <button disabled={page <= 1} onClick={() => onChange(page - 1)}
+          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition">
+          <ChevronLeft size={15} />
+        </button>
+        {pages.map(p => (
+          <button key={p} onClick={() => onChange(p)}
+            className={`w-8 h-8 rounded-lg border text-sm font-medium transition ${
+              p === page ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}>{p}</button>
+        ))}
+        <button disabled={page >= totalPages} onClick={() => onChange(page + 1)}
+          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition">
+          <ChevronRight size={15} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -204,38 +256,99 @@ function DetailModal({ v, onClose }) {
 }
 
 export default function Verifications() {
-  const [filters, setFilters] = useState({ status: '' });
+  const [filters, setFilters]   = useState({ status: '', from: todayFull, to: todayEnd });
+  const [applied, setApplied]   = useState({ from: todayFull, to: todayEnd });
+  const [page, setPage]         = useState(1);
   const [selected, setSelected] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['verifications', filters],
-    queryFn: () => api('/api/verifications', { query: filters })
+    queryKey: ['verifications', applied, page],
+    queryFn: () => api('/api/verifications', { query: { ...applied, page, pageSize: PAGE_SIZE } })
   });
 
   const items = data?.items || [];
+  const total = data?.total || 0;
+
+  function apply() { setPage(1); setApplied({ ...filters }); }
+  function reset() {
+    const def = { status: '', from: todayFull, to: todayEnd };
+    setFilters(def); setApplied({ from: todayFull, to: todayEnd }); setPage(1);
+  }
+  const hasFilters = applied.status || applied.from !== todayFull || applied.to !== todayEnd;
+
+  const todayLabel = new Date().toLocaleDateString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between flex-wrap gap-3">
+      <header className="mb-5 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-serif text-2xl md:text-3xl">Verificaciones</h1>
-          <p className="text-slate-500 text-sm">Comprobantes recibidos por WhatsApp y su resultado.</p>
+          <p className="text-slate-500 text-sm">{hasFilters ? 'Filtro activo' : `Hoy · ${todayLabel}`}</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <select
-            className="input w-full md:w-auto text-sm"
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            className={`btn text-sm flex items-center gap-1.5 flex-1 md:flex-none justify-center ${
+              showFilters ? 'btn-primary' : 'btn-ghost'
+            }`}
           >
-            <option value="">Todos los estados</option>
-            <option value="real">Verificados</option>
-            <option value="fake">Falsos</option>
-            <option value="duplicate">Duplicados</option>
-            <option value="error">Errores</option>
-          </select>
-          <button onClick={() => refetch()} className="btn btn-ghost text-sm flex items-center gap-1.5 shrink-0"><RefreshCw size={14} /> Refrescar</button>
+            <Filter size={14} /> Filtros
+            {hasFilters && <span className="bg-brand-600 text-white rounded-full w-4 h-4 text-[10px] grid place-items-center font-bold">!</span>}
+          </button>
+          <button onClick={() => refetch()} className="btn btn-ghost text-sm flex items-center gap-1.5 shrink-0">
+            <RefreshCw size={14} /><span className="hidden sm:inline">Refrescar</span>
+          </button>
         </div>
       </header>
+
+      {showFilters && (
+        <div className="card mb-5 border border-brand-100 bg-brand-50/20 animate-fade-up">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Estado</label>
+              <select className="input w-full text-sm" value={filters.status}
+                onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+                <option value="">Todos</option>
+                <option value="real">Verificados</option>
+                <option value="fake">Falsos</option>
+                <option value="duplicate">Duplicados</option>
+                <option value="pending">Pendientes</option>
+                <option value="error">Errores</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Desde</label>
+              <input type="datetime-local" className="input w-full text-sm"
+                value={filters.from.slice(0, 16)}
+                onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Hasta</label>
+              <input type="datetime-local" className="input w-full text-sm"
+                value={filters.to.slice(0, 16)}
+                onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {[['Hoy', 0, 0], ['Ayer', 1, 1], ['7 días', 7, 0], ['30 días', 30, 0]].map(([lbl, dFrom, dTo]) => (
+              <button key={lbl} type="button"
+                onClick={() => {
+                  const f = new Date(); f.setDate(f.getDate() - dFrom); f.setHours(0, 0, 0, 0);
+                  const t = new Date(); t.setDate(t.getDate() - dTo); t.setHours(23, 59, 59, 0);
+                  const fmt = (d) => d.toISOString().slice(0, 16);
+                  setFilters(fv => ({ ...fv, from: fmt(f), to: fmt(t) }));
+                }}
+                className="text-xs px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600 hover:border-brand-300 hover:text-brand-700 transition"
+              >{lbl}</button>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button onClick={apply} className="btn btn-primary text-sm">Aplicar</button>
+            <button onClick={reset} className="btn btn-ghost text-sm flex items-center gap-1"><X size={13} /> Restablecer</button>
+          </div>
+        </div>
+      )}
 
       {!isLoading && <SummaryBar items={items} />}
 
@@ -266,8 +379,9 @@ export default function Verifications() {
             {!isLoading && items.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center">
-                  <div className="text-4xl mb-2"><Inbox size={40} className="mx-auto text-slate-300" /></div>
-                  <div className="text-slate-400 text-sm">Sin verificaciones aún</div>
+                  <Inbox size={40} className="mx-auto text-slate-300 mb-2" />
+                  <div className="text-slate-400 text-sm">Sin verificaciones para el período seleccionado</div>
+                  {hasFilters && <button onClick={reset} className="mt-2 text-xs text-brand-600 underline">Ver hoy</button>}
                 </td>
               </tr>
             )}
@@ -309,7 +423,8 @@ export default function Verifications() {
         {!isLoading && items.length === 0 && (
           <div className="card text-center py-10">
             <Inbox size={36} className="mx-auto text-slate-300 mb-2" />
-            <div className="text-slate-400 text-sm">Sin verificaciones aún</div>
+            <div className="text-slate-400 text-sm">Sin verificaciones para el período</div>
+            {hasFilters && <button onClick={reset} className="mt-2 text-xs text-brand-600 underline">Ver hoy</button>}
           </div>
         )}
         {items.map((v) => (
@@ -341,6 +456,7 @@ export default function Verifications() {
         ))}
       </div>
 
+      <Pagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />
       <DetailModal v={selected} onClose={() => setSelected(null)} />
     </div>
   );

@@ -59,6 +59,39 @@ function KpiCard({ Icon, label, value, sub, accent, bg }) {
   );
 }
 
+function Pagination({ page, total, pageSize, onChange }) {
+  const totalPages = Math.ceil(total / pageSize) || 1;
+  if (totalPages <= 1) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to   = Math.min(page * pageSize, total);
+  const pages = [];
+  if (totalPages <= 5) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+  else if (page <= 3) pages.push(1, 2, 3, 4, 5);
+  else if (page >= totalPages - 2) { for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i); }
+  else pages.push(page - 2, page - 1, page, page + 1, page + 2);
+  return (
+    <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+      <span className="text-sm text-slate-500">{from}–{to} de {total} transacciones</span>
+      <div className="flex items-center gap-1">
+        <button disabled={page <= 1} onClick={() => onChange(page - 1)}
+          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition">
+          <ChevronLeft size={15} />
+        </button>
+        {pages.map(p => (
+          <button key={p} onClick={() => onChange(p)}
+            className={`w-8 h-8 rounded-lg border text-sm font-medium transition ${
+              p === page ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}>{p}</button>
+        ))}
+        <button disabled={page >= totalPages} onClick={() => onChange(page + 1)}
+          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition">
+          <ChevronRight size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Ingresos() {
   const [filters, setFilters] = useState({ from: '', to: '', min_amount: '', max_amount: '', status: '', sender: '' });
   const [applied, setApplied] = useState({});
@@ -269,29 +302,7 @@ export default function Ingresos() {
       </div>
 
       {/* Paginación */}
-      {(data?.total > 0) && (
-        <div className="flex items-center justify-between mt-4 text-sm text-slate-500">
-          <span>
-            {data.total} registro{data.total !== 1 ? 's' : ''} · página {page} de {totalPages}
-          </span>
-          <div className="flex gap-1">
-            <button
-              className="btn btn-ghost text-sm flex items-center gap-1"
-              disabled={page <= 1}
-              onClick={() => setPage(p => p - 1)}
-            >
-              <ChevronLeft size={15} /> Anterior
-            </button>
-            <button
-              className="btn btn-ghost text-sm flex items-center gap-1"
-              disabled={page >= totalPages}
-              onClick={() => setPage(p => p + 1)}
-            >
-              Siguiente <ChevronRight size={15} />
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination page={page} total={data?.total || 0} pageSize={data?.pageSize || 25} onChange={setPage} />
     </div>
   );
 }
