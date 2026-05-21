@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../../lib/supabase.js';
-import { sendMessage, downloadMedia } from '../../lib/whatsapp.js';
+import { sendMessage, downloadMedia, sendPaymentNotification } from '../../lib/whatsapp.js';
 import { extractComprobanteData } from '../../lib/groq.js';
 import { matchTransaction, buildResponseMessage } from '../../lib/matcher.js';
 import { checkVerificationLimit } from '../../lib/subscription.js';
@@ -280,7 +280,14 @@ export default async function handler(req, res) {
         for (const contact of contacts) {
           const notifTo = contact.number.replace(/^\+/, '');
           console.log('[webhook] notif-admin enviando a:', notifTo);
-          await sendMessage(notifTo, lines);
+          await sendPaymentNotification(notifTo, {
+            empresa:    co.name,
+            empleado:   employee.name,
+            monto:      extracted.amount ? `$${Number(extracted.amount).toLocaleString('es-CO')}` : 'desconocido',
+            referencia: extracted.reference || null,
+            estado:     { real: 'Verificado ✅', duplicate: 'Duplicado ⚠️', not_found: 'No encontrado ❓', error: 'Error 🚫' }[status] ?? status,
+            fecha:      fmtDate,
+          });
         }
       }
     } catch (notifErr) {
