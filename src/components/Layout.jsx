@@ -24,7 +24,8 @@ export default function Layout() {
   const navigate = useNavigate();
   const [user,        setUser]        = useState(null);
   const [company,     setCompany]     = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // En móvil el sidebar empieza cerrado; en desktop abierto
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [suspended,   setSuspended]   = useState(null); // { company } si cuenta suspendida
 
   useEffect(() => {
@@ -66,11 +67,21 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex bg-slate-50">
+      {/* Backdrop móvil — cierra el sidebar al tocar fuera */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={`${
-          sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'
-        } shrink-0 bg-white border-r border-slate-200 flex flex-col transition-all duration-300 animate-fade-in`}
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } fixed md:relative md:translate-x-0 z-30 md:z-auto
+          w-64 h-full md:h-auto shrink-0 bg-white border-r border-slate-200
+          flex flex-col transition-transform duration-300 animate-fade-in`}
       >
         {/* Logo */}
         <div className="px-5 pt-5 pb-3">
@@ -105,6 +116,7 @@ export default function Layout() {
                 key={l.to}
                 to={l.to}
                 end={l.to === '/dashboard'}
+                onClick={() => window.innerWidth < 768 && setSidebarOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97] ${
                     isActive
@@ -123,6 +135,7 @@ export default function Layout() {
           <div className="mt-3 space-y-0.5 border-t border-slate-100 pt-3">
             <NavLink
               to="/suscripcion"
+              onClick={() => window.innerWidth < 768 && setSidebarOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97] ${
                   isActive
@@ -136,6 +149,7 @@ export default function Layout() {
             </NavLink>
             <NavLink
               to="/configuracion"
+              onClick={() => window.innerWidth < 768 && setSidebarOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97] ${
                   isActive
@@ -152,6 +166,7 @@ export default function Layout() {
             {user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL && (
               <NavLink
                 to="/admin"
+                onClick={() => window.innerWidth < 768 && setSidebarOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     isActive
@@ -199,13 +214,15 @@ export default function Layout() {
           >
             ☰
           </button>
+          {/* Nombre empresa visible en móvil cuando sidebar está cerrado */}
+          <span className="text-sm font-semibold text-slate-700 truncate md:hidden">{companyName}</span>
           <div className="flex-1" />
           <div className="w-7 h-7 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-bold">
             {initials}
           </div>
         </header>
 
-        <main className="flex-1 p-8 overflow-auto">
+        <main className="flex-1 p-4 md:p-8 overflow-auto">
           <Outlet />
         </main>
       </div>

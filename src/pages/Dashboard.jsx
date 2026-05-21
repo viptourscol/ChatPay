@@ -51,12 +51,12 @@ function BarChart({ daily = [] }) {
 
   return (
     <div className="card animate-fade-up delay-300">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-start md:items-center justify-between mb-5 flex-wrap gap-2">
         <div>
           <h2 className="font-semibold text-slate-800">Actividad últimos 7 días</h2>
           <p className="text-xs text-slate-400 mt-0.5">Verificaciones por día</p>
         </div>
-        <div className="flex items-center gap-4 text-xs text-slate-500">
+        <div className="flex items-center gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" />Reales</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" />Falsos</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block" />Dup.</span>
@@ -139,7 +139,7 @@ export default function Dashboard() {
   return (
     <div>
       <header className="mb-6 animate-fade-up">
-        <h1 className="font-serif text-3xl">Dashboard</h1>
+        <h1 className="font-serif text-2xl md:text-3xl">Dashboard</h1>
         <p className="text-slate-500 text-sm">Resumen de actividad en tiempo real.</p>
       </header>
 

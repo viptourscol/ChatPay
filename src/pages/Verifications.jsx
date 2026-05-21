@@ -218,12 +218,12 @@ export default function Verifications() {
     <div>
       <header className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-serif text-3xl">Verificaciones</h1>
+          <h1 className="font-serif text-2xl md:text-3xl">Verificaciones</h1>
           <p className="text-slate-500 text-sm">Comprobantes recibidos por WhatsApp y su resultado.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full md:w-auto">
           <select
-            className="input w-auto text-sm"
+            className="input w-full md:w-auto text-sm"
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
           >
@@ -233,13 +233,14 @@ export default function Verifications() {
             <option value="duplicate">Duplicados</option>
             <option value="error">Errores</option>
           </select>
-          <button onClick={() => refetch()} className="btn btn-ghost text-sm flex items-center gap-1.5"><RefreshCw size={14} /> Refrescar</button>
+          <button onClick={() => refetch()} className="btn btn-ghost text-sm flex items-center gap-1.5 shrink-0"><RefreshCw size={14} /> Refrescar</button>
         </div>
       </header>
 
       {!isLoading && <SummaryBar items={items} />}
 
-      <div className="card overflow-hidden p-0">
+      {/* Tabla — visible solo en md+ */}
+      <div className="card overflow-hidden p-0 hidden md:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-100 text-left">
             <tr>
@@ -295,6 +296,49 @@ export default function Verifications() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards — visible solo en móvil */}
+      <div className="space-y-3 md:hidden">
+        {isLoading && (
+          <div className="card text-center py-8 text-slate-400">
+            <div className="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            Cargando…
+          </div>
+        )}
+        {!isLoading && items.length === 0 && (
+          <div className="card text-center py-10">
+            <Inbox size={36} className="mx-auto text-slate-300 mb-2" />
+            <div className="text-slate-400 text-sm">Sin verificaciones aún</div>
+          </div>
+        )}
+        {items.map((v) => (
+          <div
+            key={v.id}
+            className="card cursor-pointer active:scale-[0.99] transition-transform"
+            onClick={() => setSelected(v)}
+          >
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 text-xs font-bold grid place-items-center shrink-0">
+                  {initials(v.employees?.name)}
+                </div>
+                <div>
+                  <div className="font-medium text-slate-800 text-sm">{v.employees?.name || v.whatsapp_from || '—'}</div>
+                  <div className="text-xs text-slate-400">{fmtDateShort(v.created_at)}</div>
+                </div>
+              </div>
+              <StatusBadge status={v.status} />
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-lg font-semibold text-slate-900">{fmtMoney(v.extracted_amount)}</div>
+              <span className="text-brand-600 text-xs font-medium flex items-center gap-0.5">Ver detalle <ChevronRight size={12} /></span>
+            </div>
+            {v.extracted_sender && (
+              <div className="text-xs text-slate-400 mt-1 truncate">Remitente: {v.extracted_sender}</div>
+            )}
+          </div>
+        ))}
       </div>
 
       <DetailModal v={selected} onClose={() => setSelected(null)} />
