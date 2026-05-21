@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw } from 'lucide-react';
 
 const PLANS = {
   starter: {
@@ -56,11 +56,28 @@ function UsageBar({ used, max, label }) {
 }
 
 export default function Subscription() {
+  const qc = useQueryClient();
   const { data: sub, isLoading, error } = useQuery({
     queryKey: ['subscription'],
     queryFn: () => api('/api/subscription')
   });
   const [months, setMonths] = useState(1);
+
+  // Detectar retorno desde Wompi
+  const params = new URLSearchParams(window.location.search);
+  const paymentParam = params.get('payment');
+  const returnedPlan = params.get('plan');
+  const isPending  = paymentParam === 'pending';
+
+  // Polling automático cuando vuelve con ?payment=pending
+  useEffect(() => {
+    if (!isPending) return;
+    // Refrescar cada 4 segundos hasta que el webhook active la suscripción
+    const interval = setInterval(() => {
+      qc.invalidateQueries({ queryKey: ['subscription'] });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isPending, qc]);
 
   const payMutation = useMutation({
     mutationFn: ({ plan, months }) => api('/api/subscription', { method: 'POST', body: { plan, months } }),
@@ -86,6 +103,26 @@ export default function Subscription() {
         <h1 className="font-serif text-3xl">Mi Suscripción</h1>
         <p className="text-slate-500 text-sm mt-1">Gestiona tu plan y revisa el uso del mes.</p>
       </header>
+
+      {/* Banner retorno de pago */}
+      {sub?.subscription_status === 'active' && paymentParam && (
+        <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3 animate-fade-up">
+          <PartyPopper size={20} className="text-emerald-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-emerald-700">¡Pago exitoso! Tu suscripción está activa</p>
+            <p className="text-sm text-emerald-600 mt-0.5">Plan <strong>{returnedPlan}</strong> activado correctamente. Ya puedes usar todas las funciones.</p>
+          </div>
+        </div>
+      )}
+      {isPending && sub?.subscription_status !== 'active' && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 animate-fade-up">
+          <RefreshCw size={18} className="text-amber-500 shrink-0 animate-spin" />
+          <div>
+            <p className="font-semibold text-amber-700">Verificando tu pago…</p>
+            <p className="text-sm text-amber-600 mt-0.5">Esto toma unos segundos. No cierres esta página.</p>
+          </div>
+        </div>
+      )}
 
       {/* Banner de alerta */}
       {isExpired && (

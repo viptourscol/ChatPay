@@ -23,7 +23,7 @@ const PLAN_LABELS = { starter: 'Starter', business: 'Business', enterprise: 'Ent
  * - currency: "COP"
  * - redirect_url: URL de retorno tras el pago
  */
-async function createWompiLink({ amountCOP, description, redirectUrl }) {
+async function createWompiLink({ amountCOP, description, redirectUrl, reference }) {
   const WOMPI_PRIVATE_KEY = process.env.WOMPI_PRIVATE_KEY;
   if (!WOMPI_PRIVATE_KEY) throw new Error('WOMPI_PRIVATE_KEY no configurada en las variables de entorno.');
 
@@ -42,6 +42,7 @@ async function createWompiLink({ amountCOP, description, redirectUrl }) {
     amount_in_cents:   amountCOP * 100,
     expires_in_days:   2,
     redirect_url:      redirectUrl,
+    ...(reference && { reference }),
   };
 
   const r = await fetch(`${baseUrl}/payment_links`, {
@@ -121,13 +122,16 @@ export default async function handler(req, res) {
     const { data: company } = await supabaseAdmin
       .from('companies').select('id, name').eq('user_id', user.id).maybeSingle();
 
-    const appUrl     = process.env.VITE_APP_URL || 'https://chat-pay-six.vercel.app';
-    const redirectUrl = `${appUrl}/suscripcion?payment=success&plan=${plan}&months=${m}`;
+    const companyId   = company?.id || user.id;
+    const appUrl      = process.env.VITE_APP_URL || 'https://chat-pay-six.vercel.app';
+    const redirectUrl = `${appUrl}/suscripcion?payment=pending&plan=${plan}&months=${m}`;
     const description = `ChatPay Plan ${PLAN_LABELS[plan]} ${m}mes${m > 1 ? 'es' : ''}${discount > 0 ? ` -${discount}%` : ''}`;
+    // reference permite al webhook identificar qué empresa pagó y qué plan activar
+    const reference   = `${companyId}|${plan}|${m}`;
 
     let wompiResult;
     try {
-      wompiResult = await createWompiLink({ amountCOP: total, description, redirectUrl });
+      wompiResult = await createWompiLink({ amountCOP: total, description, redirectUrl, reference });
     } catch (err) {
       console.error('[subscription/payment] Wompi error:', err.message);
       return res.status(502).json({ error: `No se pudo crear el link de pago: ${err.message}` });
