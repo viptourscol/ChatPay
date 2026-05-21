@@ -27,18 +27,24 @@ async function createWompiLink({ amountCOP, description, redirectUrl }) {
   const WOMPI_PRIVATE_KEY = process.env.WOMPI_PRIVATE_KEY;
   if (!WOMPI_PRIVATE_KEY) throw new Error('WOMPI_PRIVATE_KEY no configurada en las variables de entorno.');
 
+  // Seleccionar endpoint según tipo de llave (test vs producción)
+  const isTest = WOMPI_PRIVATE_KEY.startsWith('prv_test_');
+  const baseUrl = isTest
+    ? 'https://sandbox.wompi.co/v1'
+    : 'https://api.wompi.co/v1';
+
   const body = {
     name:              description.slice(0, 60),
     description:       description.slice(0, 255),
     single_use:        true,
     collect_shipping:  false,
     currency:          'COP',
-    amount_in_cents:   amountCOP * 100,   // Wompi exige centavos
+    amount_in_cents:   amountCOP * 100,
     expires_in_days:   2,
     redirect_url:      redirectUrl,
   };
 
-  const r = await fetch('https://api.wompi.co/v1/payment_links', {
+  const r = await fetch(`${baseUrl}/payment_links`, {
     method:  'POST',
     headers: {
       'Content-Type': 'application/json',
