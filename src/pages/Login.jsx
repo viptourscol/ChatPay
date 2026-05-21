@@ -21,8 +21,10 @@ export default function Login() {
     <div className="min-h-screen grid place-items-center px-4 bg-gradient-to-b from-brand-50 to-white">
       <div className="w-full max-w-md card">
         <div className="text-center mb-6">
-          <Link to="/" className="font-serif text-3xl">ChatPay</Link>
-          <p className="text-slate-500 text-sm mt-1">Verificación de pagos por WhatsApp</p>
+          <Link to="/" className="inline-block">
+            <img src="/logo.svg" alt="ChatPay Bot" className="h-16 w-auto mx-auto" />
+          </Link>
+          <p className="text-slate-500 text-sm mt-2">Verificación de pagos por WhatsApp</p>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>

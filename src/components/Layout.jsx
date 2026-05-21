@@ -86,11 +86,7 @@ export default function Layout() {
         {/* Logo */}
         <div className="px-5 pt-5 pb-3">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-sm">C</div>
-            <div>
-              <div className="font-semibold text-slate-900 leading-none">ChatPay</div>
-              <div className="text-[10px] text-slate-400">Verificación de pagos</div>
-            </div>
+            <img src="/logo.svg" alt="ChatPay Bot" className="h-8 w-auto" />
           </div>
 
           {/* Empresa selector */}

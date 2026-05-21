@@ -43,7 +43,7 @@ export default function Landing() {
       {/* NAVBAR */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur border-b border-slate-100">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="font-serif text-xl font-semibold">ChatPay</span>
+          <img src="/logo.svg" alt="ChatPay Bot" className="h-8 w-auto" />
           <nav className="hidden md:flex items-center gap-6 text-sm text-slate-600">
             {NAV_LINKS.map((l) => (
               <a key={l.href} href={l.href} className="hover:text-slate-900 transition">{l.label}</a>
