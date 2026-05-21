@@ -189,9 +189,9 @@ export default function Reports() {
               <span className="w-6 h-6 rounded-full bg-brand-600 text-white text-xs grid place-items-center font-bold">1</span>
               Selecciona el período
             </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="label">Desde</label><input type="date" className="input" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></div>
-              <div><label className="label">Hasta</label><input type="date" className="input" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><label className="label">Desde</label><input type="date" className="input w-full" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></div>
+              <div><label className="label">Hasta</label><input type="date" className="input w-full" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} /></div>
             </div>
             <div className="flex flex-wrap gap-2 mt-3">
               {[['Hoy', 0], ['7 días', 7], ['30 días', 30], ['90 días', 90]].map(([label, days]) => (

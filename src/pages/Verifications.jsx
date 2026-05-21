@@ -117,9 +117,9 @@ function DetailModal({ v, onClose }) {
   const { Icon: StatusIcon } = s;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm grid place-items-center p-4 z-50" onClick={onClose}>
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className={`px-6 py-4 flex items-center justify-between ${headerBg}`}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm grid place-items-center p-3 z-50" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
+        <div className={`px-5 py-4 flex items-center justify-between shrink-0 ${headerBg}`}>
           <div className="flex items-center gap-3">
             <StatusIcon size={28} className={s.iconCls} />
             <div>
@@ -130,7 +130,7 @@ function DetailModal({ v, onClose }) {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition"><X size={18} /></button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-5 py-5 space-y-4 overflow-y-auto">
           <div className="text-center py-3 rounded-xl bg-slate-50">
             <div className="text-xs text-slate-500 mb-1">Monto del comprobante</div>
             <div className="text-3xl font-bold text-slate-900">{fmtMoney(v.extracted_amount)}</div>

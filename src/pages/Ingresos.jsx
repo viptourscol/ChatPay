@@ -43,14 +43,16 @@ function StatusBadge({ status }) {
 }
 
 function KpiCard({ Icon, label, value, sub, accent, bg }) {
+  const str = String(value ?? '');
+  const fontSize = str.length > 12 ? 'text-sm' : str.length > 8 ? 'text-base' : 'text-xl';
   return (
     <div className="card flex items-center gap-3 py-3">
       <div className={`w-10 h-10 rounded-xl grid place-items-center shrink-0 ${bg || 'bg-slate-100'}`}>
         <Icon size={19} className={accent || 'text-slate-500'} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-xs text-slate-400 truncate">{label}</div>
-        <div className={`text-xl font-semibold leading-tight truncate ${accent || 'text-slate-900'}`}>{value}</div>
+        <div className={`${fontSize} font-semibold leading-tight break-all ${accent || 'text-slate-900'}`}>{value}</div>
         {sub && <div className="text-[11px] text-slate-400">{sub}</div>}
       </div>
     </div>
@@ -164,8 +166,8 @@ export default function Ingresos() {
         </div>
       )}
 
-      {/* Tabla */}
-      <div className="card overflow-hidden p-0">
+      {/* Tabla — solo md+ */}
+      <div className="card overflow-hidden p-0 hidden md:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-100 text-left">
             <tr>
@@ -226,6 +228,44 @@ export default function Ingresos() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards — solo móvil */}
+      <div className="space-y-3 md:hidden">
+        {isLoading && (
+          <div className="card text-center py-8 text-slate-400">
+            <div className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            Cargando…
+          </div>
+        )}
+        {!isLoading && (data?.items || []).length === 0 && (
+          <div className="card text-center py-10">
+            <Search size={32} className="mx-auto text-slate-300 mb-2" />
+            <div className="text-slate-400 text-sm">Sin transacciones</div>
+          </div>
+        )}
+        {(data?.items || []).map((t) => (
+          <div key={t.id} className="card">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 text-xs font-bold grid place-items-center shrink-0">
+                  {initials(t.sender_name)}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-800 text-sm truncate">{t.sender_name || '—'}</div>
+                  <div className="text-xs text-slate-400">{fmtDate(t.transaction_date)} {fmtTime(t.transaction_date)}</div>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-bold text-emerald-700">{fmtMoney(t.amount)}</div>
+                <StatusBadge status={t.status} />
+              </div>
+            </div>
+            {(t.raw_snippet || t.raw_subject) && (
+              <div className="text-xs text-slate-400 mt-1 line-clamp-2">{t.raw_snippet || t.raw_subject}</div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Paginación */}

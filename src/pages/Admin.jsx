@@ -74,14 +74,16 @@ function StatCard({ icon: Icon, label, value, sub, color = 'brand' }) {
     purple:  'bg-purple-50 text-purple-600',
     rose:    'bg-rose-50 text-rose-600',
   };
+  const str = String(value ?? '');
+  const fontSize = str.length > 12 ? 'text-base' : str.length > 8 ? 'text-xl' : 'text-2xl';
   return (
-    <div className="card flex items-center gap-4 py-4 px-5">
+    <div className="card flex items-center gap-3 py-4 px-4 md:px-5">
       <div className={`w-10 h-10 rounded-xl grid place-items-center shrink-0 ${colors[color]}`}>
         <Icon size={18} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-xs text-slate-500 font-medium truncate">{label}</p>
-        <p className="text-2xl font-bold text-slate-800 leading-tight">{value}</p>
+        <p className={`${fontSize} font-bold text-slate-800 leading-tight break-all`}>{value}</p>
         {sub && <p className="text-xs text-slate-400">{sub}</p>}
       </div>
     </div>
@@ -314,6 +316,42 @@ function CompanyRow({ c, onEdit }) {
   );
 }
 
+/* ─── CompanyCard (móvil) ────────────────────────────────── */
+function CompanyCard({ c, onEdit }) {
+  return (
+    <div className={`card ${!c.is_active ? 'opacity-50' : ''}`}>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-100 to-brand-200 text-brand-700 font-bold text-sm grid place-items-center shrink-0 uppercase">
+            {(c.name || 'E').charAt(0)}
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-slate-800 text-sm truncate">{c.name || '—'}</div>
+            <div className="text-xs text-slate-400 truncate">{c.user_email || '—'}</div>
+          </div>
+        </div>
+        <button
+          onClick={() => onEdit(c)}
+          className="shrink-0 flex items-center gap-1 text-xs text-brand-600 font-medium px-2 py-1 rounded-lg hover:bg-brand-50 border border-brand-200"
+        >
+          <Pencil size={11} /> Editar
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-2">
+        <PlanBadge plan={c.plan} />
+        <StatusBadge status={c.subscription_status} trialEndsAt={c.trial_ends_at} />
+      </div>
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="flex gap-3">
+          <span className="flex items-center gap-1"><Users size={10} />{c.max_employees >= 999999 ? '∞' : c.max_employees} emp.</span>
+          <span className="flex items-center gap-1"><ShieldCheck size={10} />{c.max_verifications_month >= 999999 ? '∞' : c.max_verifications_month}/mes</span>
+        </div>
+        <span className="font-semibold text-slate-700">{fmtPrice(PLAN_OPTS.find(p => p.value === c.plan)?.price ?? 49900)}<span className="font-normal text-slate-400">/mes</span></span>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Admin Page ─────────────────────────────────────────── */
 export default function Admin() {
   const qc = useQueryClient();
@@ -457,8 +495,21 @@ export default function Admin() {
         </span>
       </div>
 
-      {/* Tabla */}
-      <div className="card overflow-hidden p-0">
+      {/* Cards — solo en móvil */}
+      <div className="space-y-3 md:hidden">
+        {filtered.map(c => (
+          <CompanyCard key={c.id} c={c} onEdit={setEditing} />
+        ))}
+        {filtered.length === 0 && (
+          <div className="card text-center py-10 text-slate-400">
+            <Building2 size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Sin empresas que coincidan</p>
+          </div>
+        )}
+      </div>
+
+      {/* Tabla — solo en md+ */}
+      <div className="card overflow-hidden p-0 hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-100">

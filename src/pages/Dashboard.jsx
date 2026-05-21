@@ -31,15 +31,17 @@ const STATUS_ICON = {
 };
 
 function KpiCard({ Icon, label, value, sub, accent, bg, delay = 'delay-0' }) {
+  const str = String(value ?? '');
+  const fontSize = str.length > 12 ? 'text-base' : str.length > 8 ? 'text-xl' : 'text-2xl';
   return (
-    <div className={`card flex items-center gap-4 py-4 animate-fade-up ${delay} hover:shadow-md transition-shadow duration-200`}>
-      <div className={`w-11 h-11 rounded-xl grid place-items-center shrink-0 transition-transform duration-200 hover:scale-110 ${bg || 'bg-slate-100'}`}>
-        <Icon size={22} className={accent || 'text-slate-500'} />
+    <div className={`card flex items-center gap-3 py-4 animate-fade-up ${delay} hover:shadow-md transition-shadow duration-200`}>
+      <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl grid place-items-center shrink-0 transition-transform duration-200 hover:scale-110 ${bg || 'bg-slate-100'}`}>
+        <Icon size={20} className={accent || 'text-slate-500'} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-xs text-slate-400 mb-0.5 truncate">{label}</div>
-        <div className={`text-2xl font-semibold leading-none animate-count-up ${delay} ${accent || 'text-slate-900'}`}>{value}</div>
-        {sub && <div className="text-[11px] text-slate-400 mt-1">{sub}</div>}
+        <div className={`${fontSize} font-semibold leading-tight animate-count-up ${delay} ${accent || 'text-slate-900'} break-all`}>{value}</div>
+        {sub && <div className="text-[11px] text-slate-400 mt-0.5 truncate">{sub}</div>}
       </div>
     </div>
   );
