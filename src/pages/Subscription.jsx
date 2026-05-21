@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
 
 const PLANS = {
   starter: {
@@ -58,6 +59,12 @@ export default function Subscription() {
   const { data: sub, isLoading, error } = useQuery({
     queryKey: ['subscription'],
     queryFn: () => api('/api/subscription')
+  });
+  const [months, setMonths] = useState(1);
+
+  const payMutation = useMutation({
+    mutationFn: ({ plan, months }) => api('/api/subscription', { method: 'POST', body: { plan, months } }),
+    onSuccess: (data) => { if (data?.url) window.location.href = data.url; },
   });
 
   if (isLoading) return <div className="text-slate-400 py-12 text-center">Cargando…</div>;
@@ -148,11 +155,38 @@ export default function Subscription() {
 
       {/* Comparativa de planes */}
       <div className="animate-fade-up delay-300">
-        <h2 className="font-semibold text-slate-800 mb-4">Planes disponibles</h2>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
+          <h2 className="font-semibold text-slate-800">Planes disponibles</h2>
+
+          {/* Selector de duración */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+            {[
+              { m: 1,  label: '1 mes' },
+              { m: 3,  label: '3 meses', badge: '-5%' },
+              { m: 6,  label: '6 meses', badge: '-10%' },
+              { m: 12, label: '1 año',   badge: '-15%' },
+            ].map(({ m, label, badge }) => (
+              <button
+                key={m}
+                onClick={() => setMonths(m)}
+                className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-150 ${
+                  months === m ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:text-slate-800 hover:bg-white/60'
+                }`}
+              >
+                {label}
+                {badge && <span className={`text-[10px] font-bold px-1 rounded ${months === m ? 'text-emerald-600 bg-emerald-50' : 'text-emerald-500'}`}>{badge}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {Object.entries(PLANS).map(([key, p]) => {
             const Icon = p.icon;
             const isCurrent = key === sub?.plan;
+            const discount = { 1: 0, 3: 5, 6: 10, 12: 15 }[months] ?? 0;
+            const total = Math.round(p.price * months * (1 - discount / 100));
+            const isPaying = payMutation.isPending && payMutation.variables?.plan === key;
             return (
               <div key={key} className={`card border-2 transition-all ${isCurrent ? `border-${p.color}-400 bg-${p.color}-50/30` : 'border-transparent'}`}>
                 {isCurrent && (
@@ -164,10 +198,19 @@ export default function Subscription() {
                   <Icon size={16} className={`text-${p.color}-600`} />
                   <span className="font-bold text-slate-800">{p.label}</span>
                 </div>
-                <p className="text-2xl font-bold text-slate-900 mb-4">
-                  {fmt(p.price)}<span className="text-sm font-normal text-slate-400">/mes</span>
-                </p>
-                <ul className="space-y-2">
+                <div className="mb-1">
+                  <span className="text-2xl font-bold text-slate-900">{fmt(total)}</span>
+                  {months > 1
+                    ? <span className="text-sm font-normal text-slate-400"> / {months} meses</span>
+                    : <span className="text-sm font-normal text-slate-400">/mes</span>
+                  }
+                </div>
+                {discount > 0 && (
+                  <p className="text-xs text-emerald-600 font-medium mb-3">
+                    Ahorra {fmt(p.price * months - total)} ({discount}% descuento)
+                  </p>
+                )}
+                <ul className="space-y-2 mb-5">
                   {p.features.map(f => (
                     <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
                       <CheckCircle2 size={13} className={`text-${p.color}-500 shrink-0`} />
@@ -175,23 +218,37 @@ export default function Subscription() {
                     </li>
                   ))}
                 </ul>
-                {!isCurrent && (
-                  <a
-                    href="mailto:pagosviptourscol@gmail.com?subject=Cambio de plan ChatPay"
-                    className={`btn mt-5 w-full text-center text-sm bg-${p.color}-600 hover:bg-${p.color}-700 text-white`}
-                  >
-                    Actualizar a {p.label}
-                  </a>
+                <button
+                  disabled={isPaying}
+                  onClick={() => payMutation.mutate({ plan: key, months })}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition ${
+                    isCurrent
+                      ? `bg-${p.color}-100 text-${p.color}-700 hover:bg-${p.color}-200`
+                      : `bg-${p.color}-600 hover:bg-${p.color}-700 text-white`
+                  } disabled:opacity-60`}
+                >
+                  {isPaying
+                    ? <><Loader2 size={15} className="animate-spin" /> Procesando…</>
+                    : <><ExternalLink size={14} /> {isCurrent ? 'Renovar' : `Suscribirme`}</>
+                  }
+                </button>
+                {payMutation.isError && payMutation.variables?.plan === key && (
+                  <p className="text-xs text-red-600 mt-2 text-center">{payMutation.error?.message}</p>
                 )}
               </div>
             );
           })}
         </div>
 
-        <p className="text-center text-slate-400 text-xs mt-6">
-          Para cambiar tu plan o activar tu suscripción escríbenos a{' '}
-          <a href="mailto:pagosviptourscol@gmail.com" className="text-brand-600 underline">pagosviptourscol@gmail.com</a>
-        </p>
+        {/* Badge Wompi */}
+        <div className="flex items-center justify-center gap-2 mt-6 text-slate-400 text-xs">
+          <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-60">
+            <rect width="32" height="32" rx="8" fill="#7B3FE4"/>
+            <text x="6" y="22" fontSize="14" fontWeight="bold" fill="white">W</text>
+          </svg>
+          Pagos procesados de forma segura por <span className="font-semibold text-slate-500">Wompi</span>
+          · Tarjeta, PSE, Nequi y Bancolombia
+        </div>
       </div>
     </div>
   );

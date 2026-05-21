@@ -2,56 +2,47 @@
  * api/subscription/index.js
  *
  * GET  /api/subscription        — estado de suscripción y métricas
- * POST /api/subscription        — crear link de pago en Bold
+ * POST /api/subscription        — crear link de pago en Wompi
  */
 import { requireUser } from '../../lib/auth.js';
 import { requireCompany } from '../../lib/getCompany.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { getMonthlyVerificationCount } from '../../lib/subscription.js';
 
-/* ─── Precios y descuentos Bold ───────────────────────── */
+/* ─── Precios y descuentos ────────────────────────────── */
 const BASE_PRICES = { starter: 49900, business: 129900, enterprise: 299900 };
 const DISCOUNTS   = { 1: 0, 3: 5, 6: 10, 12: 15 };
 const PLAN_LABELS = { starter: 'Starter', business: 'Business', enterprise: 'Enterprise' };
 
 /**
- * Crea un link de pago en Bold.
- * Docs: POST https://integrations.api.bold.co/online/link/v1
+ * Crea un link de pago en Wompi.
+ * Docs: POST https://api.wompi.co/v1/payment_links
  *
- * Notas según documentación oficial:
- * - amount_type: "CLOSE" (el comerciante establece el monto)
- * - expiration_date: nanosegundos Unix (Date.now() * 1e6)
- * - payment_methods: CREDIT_CARD | PSE | BOTON_BANCOLOMBIA | NEQUI
- * - callback_url: debe iniciar con https://
- * - description: 2–100 caracteres
+ * - amount_in_cents: monto en centavos COP (valor × 100)
+ * - single_use: true  (link de un solo uso por pago)
+ * - currency: "COP"
+ * - redirect_url: URL de retorno tras el pago
  */
-async function createBoldLink({ amount, description, callbackUrl }) {
-  const BOLD_API_KEY = process.env.BOLD_API_KEY;
-  if (!BOLD_API_KEY) throw new Error('BOLD_API_KEY no configurada en las variables de entorno.');
-
-  // expiration_date en nanosegundos Unix (24 horas desde ahora)
-  const expirationNs = (Date.now() + 24 * 60 * 60 * 1000) * 1_000_000;
-
-  // Truncar descripción a 100 caracteres (límite de la API)
-  const desc = description.slice(0, 100);
+async function createWompiLink({ amountCOP, description, redirectUrl }) {
+  const WOMPI_PRIVATE_KEY = process.env.WOMPI_PRIVATE_KEY;
+  if (!WOMPI_PRIVATE_KEY) throw new Error('WOMPI_PRIVATE_KEY no configurada en las variables de entorno.');
 
   const body = {
-    amount_type: 'CLOSE',
-    amount: {
-      currency:     'COP',
-      total_amount: amount,
-    },
-    description:     desc,
-    expiration_date: expirationNs,
-    callback_url:    callbackUrl,
-    payment_methods: ['CREDIT_CARD', 'PSE', 'BOTON_BANCOLOMBIA', 'NEQUI'],
+    name:              description.slice(0, 60),
+    description:       description.slice(0, 255),
+    single_use:        true,
+    collect_shipping:  false,
+    currency:          'COP',
+    amount_in_cents:   amountCOP * 100,   // Wompi exige centavos
+    expires_in_days:   2,
+    redirect_url:      redirectUrl,
   };
 
-  const r = await fetch('https://integrations.api.bold.co/online/link/v1', {
+  const r = await fetch('https://api.wompi.co/v1/payment_links', {
     method:  'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization:  `x-api-key ${BOLD_API_KEY}`,
+      Authorization:  `Bearer ${WOMPI_PRIVATE_KEY}`,
     },
     body: JSON.stringify(body),
   });
@@ -59,14 +50,16 @@ async function createBoldLink({ amount, description, callbackUrl }) {
   const data = await r.json().catch(() => ({}));
 
   if (!r.ok) {
-    const errMsg = data?.errors?.map(e => e.message || JSON.stringify(e)).join(', ') || r.status;
-    throw new Error(`Bold API ${r.status}: ${errMsg}`);
+    const errMsg = data?.error?.messages
+      ? Object.values(data.error.messages).flat().join(', ')
+      : (data?.error?.type || r.status);
+    throw new Error(`Wompi API ${r.status}: ${errMsg}`);
   }
 
-  // La respuesta es: { payload: { payment_link: "LNK_...", url: "https://..." }, errors: [] }
+  // Respuesta: { data: { id, permalink, ... } }
   return {
-    url:          data?.payload?.url,
-    payment_link: data?.payload?.payment_link,
+    url:        data?.data?.permalink,
+    payment_id: data?.data?.id,
   };
 }
 
@@ -105,7 +98,7 @@ export default async function handler(req, res) {
     });
   }
 
-  /* ── POST: crear link de pago Bold ──────────────────── */
+  /* ── POST: crear link de pago Wompi ─────────────────── */
   if (req.method === 'POST') {
     // Para pagos NO requerimos requireCompany (la cuenta puede estar suspendida)
     const { plan = 'starter', months = 1 } = req.body || {};
@@ -120,27 +113,26 @@ export default async function handler(req, res) {
     const { data: company } = await supabaseAdmin
       .from('companies').select('id, name').eq('user_id', user.id).maybeSingle();
 
-    const companyId   = company?.id || user.id;
-    const appUrl      = process.env.VITE_APP_URL || 'https://chat-pay-six.vercel.app';
-    const callbackUrl = `${appUrl}/suscripcion?payment=success&plan=${plan}&months=${m}`;
-    const description = `ChatPay Plan ${PLAN_LABELS[plan]} ${m}mes${discount > 0 ? ` -${discount}%` : ''}`;
+    const appUrl     = process.env.VITE_APP_URL || 'https://chat-pay-six.vercel.app';
+    const redirectUrl = `${appUrl}/suscripcion?payment=success&plan=${plan}&months=${m}`;
+    const description = `ChatPay Plan ${PLAN_LABELS[plan]} ${m}mes${m > 1 ? 'es' : ''}${discount > 0 ? ` -${discount}%` : ''}`;
 
-    let boldResult;
+    let wompiResult;
     try {
-      boldResult = await createBoldLink({ amount: total, description, callbackUrl });
+      wompiResult = await createWompiLink({ amountCOP: total, description, redirectUrl });
     } catch (err) {
-      console.error('[subscription/payment] Bold error:', err.message);
+      console.error('[subscription/payment] Wompi error:', err.message);
       return res.status(502).json({ error: `No se pudo crear el link de pago: ${err.message}` });
     }
 
-    if (!boldResult?.url) return res.status(502).json({ error: 'Bold no devolvió una URL de pago.' });
+    if (!wompiResult?.url) return res.status(502).json({ error: 'Wompi no devolvió una URL de pago.' });
 
     return res.json({
-      url:          boldResult.url,
-      payment_link: boldResult.payment_link,
-      amount:       total,
+      url:        wompiResult.url,
+      payment_id: wompiResult.payment_id,
+      amount:     total,
       plan,
-      months:       m,
+      months:     m,
       discount,
     });
   }
