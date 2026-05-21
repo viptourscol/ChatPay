@@ -62,6 +62,8 @@ async function createWompiLink({ amountCOP, description, redirectUrl }) {
     throw new Error(`Wompi API ${r.status}: ${errMsg}`);
   }
 
+  console.log('[wompi] response:', JSON.stringify(data));
+
   // Respuesta: { data: { id, permalink, ... } }
   return {
     url:        data?.data?.permalink,
@@ -131,7 +133,7 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: `No se pudo crear el link de pago: ${err.message}` });
     }
 
-    if (!wompiResult?.url) return res.status(502).json({ error: 'Wompi no devolvió una URL de pago.' });
+    if (!wompiResult?.url) return res.status(502).json({ error: 'Wompi no devolvió una URL de pago.', debug: wompiResult });
 
     return res.json({
       url:        wompiResult.url,
