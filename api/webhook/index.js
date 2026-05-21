@@ -69,7 +69,6 @@ async function handleWompi(req, res) {
       subscription_status:     'active',
       is_active:               true,
       trial_ends_at:           null,
-      subscription_expires_at: expiresAt.toISOString(),
       max_employees:           limits.max_employees,
       max_verifications_month: limits.max_verifications_month,
       max_bank_accounts:       limits.max_bank_accounts,

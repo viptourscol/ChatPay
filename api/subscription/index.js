@@ -173,7 +173,6 @@ export default async function handler(req, res) {
         subscription_status:     'active',
         is_active:               true,
         trial_ends_at:           null,
-        subscription_expires_at: vExpiresAt.toISOString(),
         max_employees:           vLimits.max_employees,
         max_verifications_month: vLimits.max_verifications_month,
         max_bank_accounts:       vLimits.max_bank_accounts,
