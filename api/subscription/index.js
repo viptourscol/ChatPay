@@ -64,11 +64,11 @@ async function createWompiLink({ amountCOP, description, redirectUrl }) {
 
   console.log('[wompi] response:', JSON.stringify(data));
 
-  // Respuesta: { data: { id, permalink, ... } }
-  return {
-    url:        data?.data?.permalink,
-    payment_id: data?.data?.id,
-  };
+  // permalink puede venir directo o hay que construirlo desde el id
+  const id  = data?.data?.id;
+  const url = data?.data?.permalink || (id ? `https://checkout.wompi.co/l/${id}` : null);
+
+  return { url, payment_id: id };
 }
 
 /* ─── Handler ─────────────────────────────────────────── */
