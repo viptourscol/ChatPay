@@ -73,7 +73,10 @@ export default function Subscription() {
 
   // Al volver desde Wompi, verificar el pago directamente con la API
   const verifyMutation = useMutation({
-    mutationFn: (txId) => api('/api/subscription', { method: 'POST', body: { action: 'verify', transactionId: txId } }),
+    mutationFn: (txId) => api('/api/subscription', {
+      method: 'POST',
+      body: { action: 'verify', transactionId: txId, plan: returnedPlan, months: params.get('months') },
+    }),
     onSuccess: () => {
       setVerifyDone(true);
       qc.invalidateQueries({ queryKey: ['subscription'] });

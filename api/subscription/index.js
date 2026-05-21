@@ -131,22 +131,33 @@ export default async function handler(req, res) {
       }
 
       const { data: wtx } = await wr.json();
+      console.log('[verify] Wompi tx:', JSON.stringify({ id: wtx?.id, status: wtx?.status, reference: wtx?.reference }));
       if (!wtx || wtx.status !== 'APPROVED') {
         return res.json({ activated: false, status: wtx?.status || 'UNKNOWN' });
       }
 
-      const vParts = (wtx.reference || '').split('|');
-      if (vParts.length < 2) return res.json({ activated: false, reason: 'reference inválido' });
+      // Obtener plan/meses: primero del body (enviado por el frontend), luego fallback a la reference de Wompi
+      let vPlan   = body.plan;
+      let vMonths = parseInt(body.months) || 1;
 
-      const [vCompanyId, vPlan, vMonthsStr] = vParts;
-      const vMonths = parseInt(vMonthsStr) || 1;
-
-      // Seguridad: la empresa debe pertenecer al usuario autenticado
-      const { data: vCompany } = await supabaseAdmin
-        .from('companies').select('id, user_id').eq('id', vCompanyId).maybeSingle();
-      if (!vCompany || vCompany.user_id !== user.id) {
-        return res.status(403).json({ error: 'No autorizado' });
+      if (!vPlan) {
+        // Intentar parsear desde reference de la transacción
+        const vParts = (wtx.reference || '').split('|');
+        if (vParts.length >= 2) {
+          vPlan   = vParts[1];
+          vMonths = parseInt(vParts[2]) || 1;
+        }
       }
+
+      if (!vPlan || !BASE_PRICES[vPlan]) {
+        console.error('[verify] No se pudo determinar el plan. reference:', wtx.reference, 'body.plan:', body.plan);
+        return res.json({ activated: false, reason: 'no se pudo determinar el plan' });
+      }
+
+      // Obtener empresa del usuario autenticado (más seguro que confiar en la URL)
+      const { data: vCompany } = await supabaseAdmin
+        .from('companies').select('id').eq('user_id', user.id).maybeSingle();
+      if (!vCompany) return res.status(404).json({ error: 'Empresa no encontrada' });
 
       const PLAN_LIMITS = {
         starter:    { max_employees: 1,        max_verifications_month: 200,    max_bank_accounts: 1 },
@@ -166,7 +177,7 @@ export default async function handler(req, res) {
         max_employees:           vLimits.max_employees,
         max_verifications_month: vLimits.max_verifications_month,
         max_bank_accounts:       vLimits.max_bank_accounts,
-      }).eq('id', vCompanyId);
+      }).eq('id', vCompany.id);
 
       if (vDbErr) return res.status(500).json({ error: vDbErr.message });
       console.log(`[verify] Suscripción activada: empresa=${vCompanyId} plan=${vPlan} meses=${vMonths}`);
