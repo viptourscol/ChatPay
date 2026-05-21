@@ -239,9 +239,6 @@ export default function Employees() {
   );
 }
 
-export default function Employees() {
-  const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ['employees'], queryFn: () => api('/api/employees') });
   const [form, setForm] = useState({ name: '', whatsapp_number: '' });
 
   const create = useMutation({
