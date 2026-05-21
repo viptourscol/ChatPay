@@ -62,22 +62,44 @@ export default function Subscription() {
     queryFn: () => api('/api/subscription')
   });
   const [months, setMonths] = useState(1);
+  const [verifyDone, setVerifyDone] = useState(false);
 
   // Detectar retorno desde Wompi
   const params = new URLSearchParams(window.location.search);
-  const paymentParam = params.get('payment');
-  const returnedPlan = params.get('plan');
-  const isPending  = paymentParam === 'pending';
+  const paymentParam  = params.get('payment');
+  const returnedPlan  = params.get('plan');
+  const transactionId = params.get('id'); // Wompi incluye ?id=TX_ID en el redirect
+  const isPending = paymentParam === 'pending';
 
-  // Polling automático cuando vuelve con ?payment=pending
-  useEffect(() => {
-    if (!isPending) return;
-    // Refrescar cada 4 segundos hasta que el webhook active la suscripción
-    const interval = setInterval(() => {
+  // Al volver desde Wompi, verificar el pago directamente con la API
+  const verifyMutation = useMutation({
+    mutationFn: (txId) => api('/api/subscription', { method: 'POST', body: { action: 'verify', transactionId: txId } }),
+    onSuccess: () => {
+      setVerifyDone(true);
       qc.invalidateQueries({ queryKey: ['subscription'] });
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [isPending, qc]);
+    },
+    onError: () => {
+      // Si falla la verificación directa, hacer polling (webhook puede llegar)
+      setVerifyDone(false);
+    },
+  });
+
+  useEffect(() => {
+    if (!isPending || verifyDone || verifyMutation.isPending) return;
+    if (transactionId) {
+      // Wompi dio el ID → verificar directamente
+      verifyMutation.mutate(transactionId);
+    } else {
+      // Sin ID → polling hasta que el webhook active la suscripción
+      const interval = setInterval(() => {
+        qc.invalidateQueries({ queryKey: ['subscription'] });
+      }, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [isPending, transactionId, verifyDone]);
+
+  // El plan en DB ya coincide con lo que se pagó
+  const planActivated = isPending && sub?.plan === returnedPlan && sub?.subscription_status === 'active';
 
   const payMutation = useMutation({
     mutationFn: ({ plan, months }) => api('/api/subscription', { method: 'POST', body: { plan, months } }),
@@ -105,21 +127,25 @@ export default function Subscription() {
       </header>
 
       {/* Banner retorno de pago */}
-      {sub?.subscription_status === 'active' && paymentParam && (
+      {planActivated && (
         <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3 animate-fade-up">
           <PartyPopper size={20} className="text-emerald-500 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold text-emerald-700">¡Pago exitoso! Tu suscripción está activa</p>
-            <p className="text-sm text-emerald-600 mt-0.5">Plan <strong>{returnedPlan}</strong> activado correctamente. Ya puedes usar todas las funciones.</p>
+            <p className="text-sm text-emerald-600 mt-0.5">Plan <strong>{PLANS[returnedPlan]?.label || returnedPlan}</strong> activado correctamente. Ya puedes usar todas las funciones.</p>
           </div>
         </div>
       )}
-      {isPending && sub?.subscription_status !== 'active' && (
+      {isPending && !planActivated && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 animate-fade-up">
           <RefreshCw size={18} className="text-amber-500 shrink-0 animate-spin" />
           <div>
             <p className="font-semibold text-amber-700">Verificando tu pago…</p>
-            <p className="text-sm text-amber-600 mt-0.5">Esto toma unos segundos. No cierres esta página.</p>
+            <p className="text-sm text-amber-600 mt-0.5">
+              {verifyMutation.isError
+                ? 'No pudimos confirmar el pago automáticamente. Si completaste el pago, el plan se activará en unos minutos.'
+                : 'Esto toma unos segundos. No cierres esta página.'}
+            </p>
           </div>
         </div>
       )}

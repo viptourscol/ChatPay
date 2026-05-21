@@ -107,10 +107,75 @@ export default async function handler(req, res) {
     });
   }
 
-  /* ── POST: crear link de pago Wompi ─────────────────── */
+  /* ── POST: crear link de pago Wompi o verificar transacción ────────────── */
   if (req.method === 'POST') {
+    const body = req.body || {};
+
+    // --- Acción: verificar transacción tras redirect de Wompi ---
+    if (body.action === 'verify' || body.transactionId) {
+      const { transactionId } = body;
+      if (!transactionId) return res.status(400).json({ error: 'transactionId requerido' });
+
+      const WOMPI_PRIVATE_KEY = process.env.WOMPI_PRIVATE_KEY;
+      const isTestKey = WOMPI_PRIVATE_KEY?.startsWith('prv_test_');
+      const wBaseUrl  = isTestKey ? 'https://sandbox.wompi.co/v1' : 'https://api.wompi.co/v1';
+
+      const wr = await fetch(`${wBaseUrl}/transactions/${transactionId}`, {
+        headers: { Authorization: `Bearer ${WOMPI_PRIVATE_KEY}` },
+      });
+
+      if (!wr.ok) {
+        const we = await wr.json().catch(() => ({}));
+        console.error('[verify] Wompi error:', wr.status, JSON.stringify(we));
+        return res.status(502).json({ error: 'No se pudo consultar la transacción', status: wr.status });
+      }
+
+      const { data: wtx } = await wr.json();
+      if (!wtx || wtx.status !== 'APPROVED') {
+        return res.json({ activated: false, status: wtx?.status || 'UNKNOWN' });
+      }
+
+      const vParts = (wtx.reference || '').split('|');
+      if (vParts.length < 2) return res.json({ activated: false, reason: 'reference inválido' });
+
+      const [vCompanyId, vPlan, vMonthsStr] = vParts;
+      const vMonths = parseInt(vMonthsStr) || 1;
+
+      // Seguridad: la empresa debe pertenecer al usuario autenticado
+      const { data: vCompany } = await supabaseAdmin
+        .from('companies').select('id, user_id').eq('id', vCompanyId).maybeSingle();
+      if (!vCompany || vCompany.user_id !== user.id) {
+        return res.status(403).json({ error: 'No autorizado' });
+      }
+
+      const PLAN_LIMITS = {
+        starter:    { max_employees: 1,        max_verifications_month: 200,    max_bank_accounts: 1 },
+        business:   { max_employees: 20,       max_verifications_month: 1000,   max_bank_accounts: 3 },
+        enterprise: { max_employees: 999999,   max_verifications_month: 999999, max_bank_accounts: 999999 },
+      };
+      const vLimits    = PLAN_LIMITS[vPlan] || PLAN_LIMITS.starter;
+      const vExpiresAt = new Date();
+      vExpiresAt.setMonth(vExpiresAt.getMonth() + vMonths);
+
+      const { error: vDbErr } = await supabaseAdmin.from('companies').update({
+        plan:                    vPlan,
+        subscription_status:     'active',
+        is_active:               true,
+        trial_ends_at:           null,
+        subscription_expires_at: vExpiresAt.toISOString(),
+        max_employees:           vLimits.max_employees,
+        max_verifications_month: vLimits.max_verifications_month,
+        max_bank_accounts:       vLimits.max_bank_accounts,
+      }).eq('id', vCompanyId);
+
+      if (vDbErr) return res.status(500).json({ error: vDbErr.message });
+      console.log(`[verify] Suscripción activada: empresa=${vCompanyId} plan=${vPlan} meses=${vMonths}`);
+      return res.json({ activated: true, plan: vPlan, months: vMonths, expiresAt: vExpiresAt.toISOString() });
+    }
+
+    // --- Acción: crear link de pago Wompi ---
     // Para pagos NO requerimos requireCompany (la cuenta puede estar suspendida)
-    const { plan = 'starter', months = 1 } = req.body || {};
+    const { plan = 'starter', months = 1 } = body;
 
     if (!BASE_PRICES[plan])            return res.status(400).json({ error: 'Plan inválido.' });
     if (![1,3,6,12].includes(+months)) return res.status(400).json({ error: 'Duración inválida.' });
