@@ -1,13 +1,93 @@
-import { supabaseAdmin } from '../../lib/supabase.js';
+/**
+ * api/webhook/index.js
+ *
+ * Webhook unificado para WhatsApp y Wompi, enrutado por ?provider=
+ *
+ * Rutas (vercel.json rewrites):
+ *   /api/webhook/whatsapp  →  /api/webhook?provider=whatsapp
+ *   /api/webhook/wompi     →  /api/webhook?provider=wompi
+ */
+import { createHmac }               from 'crypto';
+import { supabaseAdmin }            from '../../lib/supabase.js';
 import { sendMessage, downloadMedia, sendPaymentNotification } from '../../lib/whatsapp.js';
-import { extractComprobanteData } from '../../lib/groq.js';
+import { extractComprobanteData }   from '../../lib/groq.js';
 import { matchTransaction, buildResponseMessage } from '../../lib/matcher.js';
-import { checkVerificationLimit } from '../../lib/subscription.js';
+import { checkVerificationLimit }   from '../../lib/subscription.js';
 
 export const config = { api: { bodyParser: true } };
 
-export default async function handler(req, res) {
-  // --- Verificación de webhook (Meta GET) ---
+// ─── Límites por plan ────────────────────────────────────────────────────────
+const PLAN_LIMITS = {
+  starter:    { max_employees: 1,        max_verifications_month: 200,    max_bank_accounts: 1 },
+  business:   { max_employees: 20,       max_verifications_month: 1000,   max_bank_accounts: 3 },
+  enterprise: { max_employees: 999999,   max_verifications_month: 999999, max_bank_accounts: 999999 },
+};
+
+// ─── Wompi ───────────────────────────────────────────────────────────────────
+async function handleWompi(req, res) {
+  if (req.method !== 'POST') return res.status(405).end();
+
+  const event = req.body;
+  const { event: eventType, data, signature } = event || {};
+
+  if (eventType !== 'transaction.updated') return res.status(200).json({ ok: true });
+
+  const tx = data?.transaction;
+  if (!tx || tx.status !== 'APPROVED') return res.status(200).json({ ok: true });
+
+  // Verificar firma si está configurado WOMPI_EVENTS_SECRET
+  const eventsSecret = process.env.WOMPI_EVENTS_SECRET;
+  if (eventsSecret && signature?.checksum) {
+    const chain = (signature.properties || []).map(p =>
+      p.split('.').reduce((obj, key) => obj?.[key], event)
+    ).join('') + eventsSecret;
+    const computed = createHmac('sha256', eventsSecret).update(chain).digest('hex');
+    if (computed !== signature.checksum) {
+      console.error('[wompi-webhook] Firma inválida');
+      return res.status(401).json({ error: 'Firma inválida' });
+    }
+  }
+
+  // Decodificar reference: "companyId|plan|months"
+  const parts = (tx.reference || '').split('|');
+  if (parts.length < 2) {
+    console.log('[wompi-webhook] reference sin formato esperado:', tx.reference);
+    return res.status(200).json({ ok: true });
+  }
+
+  const [companyId, plan, monthsStr] = parts;
+  const months = parseInt(monthsStr) || 1;
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.starter;
+
+  const expiresAt = new Date();
+  expiresAt.setMonth(expiresAt.getMonth() + months);
+
+  const { error } = await supabaseAdmin
+    .from('companies')
+    .update({
+      plan,
+      subscription_status:     'active',
+      is_active:               true,
+      trial_ends_at:           null,
+      subscription_expires_at: expiresAt.toISOString(),
+      max_employees:           limits.max_employees,
+      max_verifications_month: limits.max_verifications_month,
+      max_bank_accounts:       limits.max_bank_accounts,
+    })
+    .eq('id', companyId);
+
+  if (error) {
+    console.error('[wompi-webhook] Error actualizando empresa:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+
+  console.log(`[wompi-webhook] Activo: empresa=${companyId} plan=${plan} meses=${months} vence=${expiresAt.toISOString()}`);
+  return res.status(200).json({ ok: true });
+}
+
+// ─── WhatsApp ────────────────────────────────────────────────────────────────
+async function handleWhatsApp(req, res) {
+  // Verificación de webhook (Meta GET)
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -20,19 +100,17 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Responder rápido a Meta para no superar timeout de 20s
-  // IMPORTANTE: procesamos ANTES de responder para que Vercel no corte la ejecución
   try {
     const entry = req.body?.entry?.[0];
     const change = entry?.changes?.[0]?.value;
     const message = change?.messages?.[0];
     if (!message) return res.status(200).json({ received: true });
 
-    const from = message.from; // ej: 573001234567
+    const from = message.from;
     const fromE164 = `+${from}`;
     const wamid = message.id;
 
-    // Idempotencia: si ya procesamos este mensaje, salir
+    // Idempotencia
     const { data: existing } = await supabaseAdmin
       .from('verifications')
       .select('id')
@@ -40,7 +118,6 @@ export default async function handler(req, res) {
       .maybeSingle();
     if (existing) return res.status(200).json({ received: true });
 
-    // --- Validar empleado ---
     const { data: employee } = await supabaseAdmin
       .from('employees')
       .select('*')
@@ -61,7 +138,6 @@ export default async function handler(req, res) {
 
     const companyId = employee.company_id;
 
-    // --- Mensajes de texto: verificar si hay desambiguación pendiente ---
     if (message.type === 'text') {
       const text = message.text?.body?.trim();
       const { data: pending } = await supabaseAdmin
@@ -80,11 +156,9 @@ export default async function handler(req, res) {
           await sendMessage(from, `Opción inválida. Responde con un número entre 1 y ${pending.candidate_ids.length}.`);
           return res.status(200).json({ received: true });
         }
-        // Confirmar la transacción seleccionada
         const { data: tx } = await supabaseAdmin.from('transactions').select('*').eq('id', txId).maybeSingle();
         await supabaseAdmin.from('transactions').update({ status: 'confirmed' }).eq('id', txId);
         await supabaseAdmin.from('disambiguations').update({ resolved: true }).eq('id', pending.id);
-        const { buildResponseMessage } = await import('../../lib/matcher.js');
         const responseText = buildResponseMessage({
           status: 'real',
           employeeName: employee.name,
@@ -110,7 +184,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ received: true });
       }
 
-      // Texto sin desambiguación pendiente → instrucción normal
       await sendMessage(
         from,
         `Hola ${employee.name} 👋\nEnvíame la *foto del comprobante* de pago para verificarlo.`
@@ -118,19 +191,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true });
     }
 
-    // --- Otros tipos que no son imagen ---
-    if (message.type !== 'image') {
-      return res.status(200).json({ received: true });
-    }
+    if (message.type !== 'image') return res.status(200).json({ received: true });
 
-    // --- Verificar límite de verificaciones del plan ---
     const verifyLimit = await checkVerificationLimit(companyId);
     if (!verifyLimit.ok) {
       await sendMessage(from, `⚠️ ${verifyLimit.reason}`);
       return res.status(200).json({ received: true });
     }
 
-    // --- Descargar imagen y subir a Supabase Storage ---
     const { buffer, mimeType } = await downloadMedia(message.image.id);
     const ext = mimeType.split('/')[1] || 'jpg';
     const path = `${employee.id}/${Date.now()}-${wamid}.${ext}`;
@@ -141,9 +209,8 @@ export default async function handler(req, res) {
 
     const { data: signed } = await supabaseAdmin.storage
       .from('comprobantes')
-      .createSignedUrl(path, 60 * 60 * 24 * 7); // 7 días para OCR + dashboard
+      .createSignedUrl(path, 60 * 60 * 24 * 7);
 
-    // --- OCR con Groq ---
     let extracted = {};
     try {
       extracted = await extractComprobanteData(signed.signedUrl);
@@ -152,10 +219,7 @@ export default async function handler(req, res) {
     }
 
     if (!extracted?.is_receipt) {
-      await sendMessage(
-        from,
-        `${employee.name}, no parece un comprobante de pago válido. Envía una foto clara del comprobante.`
-      );
+      await sendMessage(from, `${employee.name}, no parece un comprobante de pago válido. Envía una foto clara del comprobante.`);
       await supabaseAdmin.from('verifications').insert({
         employee_id: employee.id,
         company_id: companyId,
@@ -168,7 +232,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true });
     }
 
-    // --- Matching contra transacciones almacenadas (pending → confirmed) ---
     const { transaction, status, candidates } = await matchTransaction({
       amount: extracted.amount,
       reference: extracted.reference,
@@ -177,7 +240,6 @@ export default async function handler(req, res) {
       companyId
     });
 
-    // --- Caso ambiguo: múltiples pagos con el mismo monto ---
     if (status === 'ambiguous') {
       await supabaseAdmin.from('disambiguations').insert({
         employee_id: employee.id,
@@ -213,7 +275,6 @@ export default async function handler(req, res) {
       transactionId: transaction?.id
     };
 
-    // Para duplicados: buscar quién y cuándo verificó este comprobante antes
     if (status === 'duplicate' && transaction?.id) {
       const { data: prevVerif } = await supabaseAdmin
         .from('verifications')
@@ -230,10 +291,8 @@ export default async function handler(req, res) {
     }
 
     const responseText = buildResponseMessage(responseParams);
-
     await sendMessage(from, responseText);
 
-    // --- Notificación a los números configurados por el admin (opcional) ---
     try {
       const { data: co } = await supabaseAdmin
         .from('companies')
@@ -241,7 +300,6 @@ export default async function handler(req, res) {
         .eq('id', companyId)
         .maybeSingle();
 
-      // notification_whatsapp puede ser array (jsonb) o string JSON si la columna es text
       let rawContacts = co?.notification_whatsapp;
       if (typeof rawContacts === 'string') {
         try { rawContacts = JSON.parse(rawContacts); } catch { rawContacts = []; }
@@ -250,37 +308,15 @@ export default async function handler(req, res) {
         ? rawContacts.filter(c => c?.active && c?.number)
         : [];
 
-      console.log('[webhook] notif-admin raw:', JSON.stringify(rawContacts), '| activos:', contacts.length);
-
       if (contacts.length > 0) {
-        const statusLabel = {
-          real:      '✅ Verificado',
-          duplicate: '⚠️ Duplicado',
-          not_found: '❓ No encontrado',
-          error:     '🚫 Error',
-        }[status] ?? status;
-        const fmtAmt = extracted.amount
-          ? `$${Number(extracted.amount).toLocaleString('es-CO')}`
-          : 'monto desconocido';
         const fmtDate = transaction?.transaction_date
           ? new Date(transaction.transaction_date).toLocaleString('es-CO', {
               timeZone: 'America/Bogota', day: '2-digit', month: '2-digit',
               year: 'numeric', hour: '2-digit', minute: '2-digit'
             })
           : null;
-        const lines = [
-          `📋 *Pago verificado — ${co.name}*`,
-          `👤 Empleado: ${employee.name}`,
-          `💰 Monto: ${fmtAmt}`,
-          extracted.reference ? `🔑 Referencia: ${extracted.reference}` : null,
-          fmtDate            ? `📅 Fecha: ${fmtDate}`                   : null,
-          `📊 Estado: ${statusLabel}`,
-        ].filter(Boolean).join('\n');
-
         for (const contact of contacts) {
-          const notifTo = contact.number.replace(/^\+/, '');
-          console.log('[webhook] notif-admin enviando a:', notifTo);
-          await sendPaymentNotification(notifTo, {
+          await sendPaymentNotification(contact.number.replace(/^\+/, ''), {
             empresa:    co.name,
             empleado:   employee.name,
             monto:      extracted.amount ? `$${Number(extracted.amount).toLocaleString('es-CO')}` : 'desconocido',
@@ -291,7 +327,7 @@ export default async function handler(req, res) {
         }
       }
     } catch (notifErr) {
-      console.error('[webhook] notif-admin error:', notifErr.message, notifErr.stack);
+      console.error('[webhook] notif-admin error:', notifErr.message);
     }
 
     await supabaseAdmin.from('verifications').insert({
@@ -314,4 +350,12 @@ export default async function handler(req, res) {
     console.error('[webhook] fatal', err);
     return res.status(200).json({ received: true });
   }
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+export default function handler(req, res) {
+  const provider = req.query.provider;
+  if (provider === 'wompi')    return handleWompi(req, res);
+  if (provider === 'whatsapp') return handleWhatsApp(req, res);
+  return res.status(400).json({ error: 'provider requerido: ?provider=whatsapp|wompi' });
 }

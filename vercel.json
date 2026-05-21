@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/api/webhook/whatsapp", "destination": "/api/webhook?provider=whatsapp" },
+    { "source": "/api/webhook/wompi",    "destination": "/api/webhook?provider=wompi" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "functions": {
