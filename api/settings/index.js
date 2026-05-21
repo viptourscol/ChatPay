@@ -28,6 +28,8 @@ export default async function handler(req, res) {
   // PUT — crear o actualizar settings
   if (req.method === 'PUT') {
     const { name, nit, tax_regime, address, phone, bancolombia_email, notification_whatsapp } = req.body || {};
+    // notification_whatsapp es un array jsonb; guardar [] si viene vacío/nulo
+    const notifContacts = Array.isArray(notification_whatsapp) ? notification_whatsapp : [];
 
     const { data: existing } = await supabaseAdmin
       .from('companies')
@@ -39,14 +41,14 @@ export default async function handler(req, res) {
     if (existing?.id) {
       ({ data: result, error } = await supabaseAdmin
         .from('companies')
-        .update({ name, nit, tax_regime, address, phone, bancolombia_email: bancolombia_email || null, notification_whatsapp: notification_whatsapp || null })
+        .update({ name, nit, tax_regime, address, phone, bancolombia_email: bancolombia_email || null, notification_whatsapp: notifContacts })
         .eq('user_id', user.id)
         .select()
         .single());
     } else {
       ({ data: result, error } = await supabaseAdmin
         .from('companies')
-        .insert({ user_id: user.id, name, nit, tax_regime, address, phone, bancolombia_email: bancolombia_email || null, notification_whatsapp: notification_whatsapp || null })
+        .insert({ user_id: user.id, name, nit, tax_regime, address, phone, bancolombia_email: bancolombia_email || null, notification_whatsapp: notifContacts })
         .select()
         .single());
     }
