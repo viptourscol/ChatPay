@@ -179,8 +179,8 @@ export default async function handler(req, res) {
       }).eq('id', vCompany.id);
 
       if (vDbErr) return res.status(500).json({ error: vDbErr.message });
-      console.log(`[verify] Suscripción activada: empresa=${vCompanyId} plan=${vPlan} meses=${vMonths}`);
-      return res.json({ activated: true, plan: vPlan, months: vMonths, expiresAt: vExpiresAt.toISOString() });
+      console.log(`[verify] Suscripción activada: empresa=${vCompany.id} plan=${vPlan} meses=${vMonths}`);
+      return res.json({ activated: true, plan: vPlan, months: vMonths });
     }
 
     // --- Acción: crear link de pago Wompi ---
