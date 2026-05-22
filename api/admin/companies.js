@@ -46,6 +46,21 @@ export default async function handler(req, res) {
     if (trial_ends_at !== undefined) allowed.trial_ends_at = trial_ends_at;
     if (subscription_expires_at !== undefined) allowed.subscription_expires_at = subscription_expires_at;
     if (is_active !== undefined) allowed.is_active = is_active;
+
+    // Si el plan cambia, auto-deshabilitar números de notificación que excedan el nuevo límite
+    if (plan !== undefined) {
+      const newMax = plan === 'enterprise' ? 5 : plan === 'business' ? 2 : 0;
+      const { data: curr } = await supabaseAdmin.from('companies').select('notification_whatsapp').eq('id', id).maybeSingle();
+      const contacts = Array.isArray(curr?.notification_whatsapp) ? curr.notification_whatsapp : [];
+      let activeSlots = newMax;
+      const adjusted = contacts.map(c => {
+        if (c.active && activeSlots > 0) { activeSlots--; return c; }
+        if (c.active) return { ...c, active: false };
+        return c;
+      });
+      allowed.notification_whatsapp = adjusted;
+    }
+
     const { data, error } = await supabaseAdmin
       .from('companies')
       .update(allowed)

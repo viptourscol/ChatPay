@@ -22,6 +22,26 @@ export default async function handler(req, res) {
       return res.json({ id: null, name: '', nit: '', tax_regime: '', address: '', phone: '' });
     }
     if (error) return res.status(500).json({ error: error.message });
+
+    // Auto-deshabilitar números activos que excedan el límite del plan actual
+    const planLimits = { enterprise: 5, business: 2 };
+    const maxActive = planLimits[data.plan] ?? 0;
+    const contacts = Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : [];
+    let activeCount = 0;
+    let needsUpdate = false;
+    const adjusted = contacts.map(c => {
+      if (c.active) {
+        if (activeCount < maxActive) { activeCount++; return c; }
+        needsUpdate = true;
+        return { ...c, active: false };
+      }
+      return c;
+    });
+    if (needsUpdate) {
+      await supabaseAdmin.from('companies').update({ notification_whatsapp: adjusted }).eq('user_id', user.id);
+      data.notification_whatsapp = adjusted;
+    }
+
     return res.json(data);
   }
 
@@ -35,7 +55,14 @@ export default async function handler(req, res) {
     const { data: planData } = await supabaseAdmin.from('companies').select('plan').eq('user_id', user.id).maybeSingle();
     const plan = planData?.plan || 'starter';
     const maxNums = plan === 'enterprise' ? 5 : plan === 'business' ? 2 : 0;
-    const notifContacts = rawContacts.slice(0, maxNums);
+    // Respetar todos los números (incluso deshabilitados) pero limitar los activos al máximo del plan
+    const sliced = rawContacts.slice(0, Math.max(maxNums, rawContacts.length)); // conservar todos los números
+    let activeAllowed = maxNums;
+    const notifContacts = sliced.map(c => {
+      if (c.active && activeAllowed > 0) { activeAllowed--; return c; }
+      if (c.active && activeAllowed <= 0) return { ...c, active: false };
+      return c;
+    });
 
     const { data: existing } = await supabaseAdmin
       .from('companies')

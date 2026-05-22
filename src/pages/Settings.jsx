@@ -125,7 +125,11 @@ function TabEmpresa() {
           {form.notification_whatsapp.length === 0 && (
             <p className="text-xs text-indigo-400 italic text-center py-2">Sin números configurados</p>
           )}
-          {form.notification_whatsapp.map((contact, idx) => (
+              {form.notification_whatsapp.map((contact, idx) => {
+            const maxNums = data?.plan === 'enterprise' ? 5 : data?.plan === 'business' ? 2 : 0;
+            const activeCount = form.notification_whatsapp.filter(c => c.active).length;
+            const canActivate = contact.active || activeCount < maxNums;
+            return (
             <div key={idx} className="flex items-center gap-2 bg-white border border-indigo-100 rounded-lg px-3 py-2">
               <input
                 className="flex-1 text-sm bg-transparent outline-none text-slate-700 placeholder-slate-400"
@@ -141,13 +145,17 @@ function TabEmpresa() {
               {/* Toggle activo/inactivo */}
               <button
                 type="button"
-                title={contact.active ? 'Pausar notificaciones' : 'Activar notificaciones'}
+                disabled={!canActivate}
+                title={!canActivate ? 'Límite de números activos alcanzado. Desactiva otro primero.' : contact.active ? 'Pausar notificaciones' : 'Activar notificaciones'}
                 onClick={() => {
+                  if (!canActivate) return;
                   const next = [...form.notification_whatsapp];
                   next[idx] = { ...next[idx], active: !next[idx].active };
                   set('notification_whatsapp', next);
                 }}
-                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${contact.active ? 'bg-indigo-500' : 'bg-slate-300'}`}
+                className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                  !canActivate ? 'opacity-40 cursor-not-allowed bg-slate-200' : 'cursor-pointer ' + (contact.active ? 'bg-indigo-500' : 'bg-slate-300')
+                }`}
               >
                 <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${contact.active ? 'translate-x-4' : 'translate-x-0'}`} />
               </button>
@@ -163,19 +171,21 @@ function TabEmpresa() {
                 <Trash2 size={14} />
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <button
           type="button"
           onClick={() => {
             const maxNums = data?.plan === 'enterprise' ? 5 : data?.plan === 'business' ? 2 : 0;
-            if (form.notification_whatsapp.length >= maxNums) return;
+            const activeCount = form.notification_whatsapp.filter(c => c.active).length;
+            if (activeCount >= maxNums) return;
             set('notification_whatsapp', [...form.notification_whatsapp, { number: '', active: true }]);
           }}
           disabled={(() => {
             const maxNums = data?.plan === 'enterprise' ? 5 : data?.plan === 'business' ? 2 : 0;
-            return form.notification_whatsapp.length >= maxNums;
+            return form.notification_whatsapp.filter(c => c.active).length >= maxNums;
           })()}
           className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
