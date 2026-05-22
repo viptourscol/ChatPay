@@ -2,6 +2,7 @@ import { requireUser } from '../../lib/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireCompany } from '../../lib/getCompany.js';
 import { sendAdminAlert } from '../../lib/whatsapp.js';
+import { checkAndIncrementAlertLimit } from '../../lib/subscription.js';
 
 export default async function handler(req, res) {
   const user = await requireUser(req, res);
@@ -81,18 +82,24 @@ export default async function handler(req, res) {
           .eq('id', companyId)
           .maybeSingle();
         if (companyData?.admin_whatsapp) {
-          const fmtMoney = (n) => n != null
-            ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
-            : '—';
-          await sendAdminAlert(companyData.admin_whatsapp, {
-            empleado: data.employees?.name || data.whatsapp_from || '—',
-            monto: fmtMoney(data.extracted_amount),
-            estado: updates.status,
-            referencia: data.extracted_reference || '—',
-            fecha: data.created_at
-              ? new Date(data.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
-              : '—',
-          });
+          // Verificar límite de alertas del plan
+          const alertCheck = await checkAndIncrementAlertLimit(companyId);
+          if (!alertCheck.ok) {
+            console.log(`[verifications/alert] Límite de alertas alcanzado para empresa ${companyId}: ${alertCheck.reason}`);
+          } else {
+            const fmtMoney = (n) => n != null
+              ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+              : '—';
+            await sendAdminAlert(companyData.admin_whatsapp, {
+              empleado: data.employees?.name || data.whatsapp_from || '—',
+              monto: fmtMoney(data.extracted_amount),
+              estado: updates.status,
+              referencia: data.extracted_reference || '—',
+              fecha: data.created_at
+                ? new Date(data.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
+                : '—',
+            });
+          }
         }
       } catch (alertErr) {
         console.warn('[verifications/alert] Error enviando alerta WA:', alertErr.message);
