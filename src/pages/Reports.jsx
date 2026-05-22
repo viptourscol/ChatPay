@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { api } from '../lib/api.js';
 import {
   Download, FileText, FileSpreadsheet, FileJson,
-  Printer, CheckCircle2, Clock, XCircle, Users, ShieldCheck, Loader2
+  Printer, CheckCircle2, Clock, XCircle, Users, ShieldCheck, Loader2,
+  CalendarCheck, ChevronDown, AlertTriangle
 } from 'lucide-react';
 
 // ─── Utilidades ──────────────────────────────────────────────────
@@ -122,6 +123,237 @@ function printReport(rows, title, dateRange) {
     <tbody>${rows.map((r) => `<tr>${h.map((k) => `<td>${r[k] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody></table>
     <div class="footer">Total: ${rows.length} registros · ChatPay © ${new Date().getFullYear()}</div></body></html>`);
   w.document.close(); w.focus(); setTimeout(() => w.print(), 500);
+}
+
+// ─── Cierre de Nómina ────────────────────────────────────────────
+
+const PERIODS = [
+  { id: 'day',       label: 'Diario',     days: 1  },
+  { id: 'week',      label: 'Semanal',    days: 7  },
+  { id: 'biweekly',  label: 'Quincenal',  days: 15 },
+  { id: 'monthly',   label: 'Mensual',    days: 30 },
+];
+
+const NOMINA_STATUS = {
+  pagado:   { label: 'Pagado',   cls: 'bg-emerald-100 text-emerald-700 border border-emerald-200', dot: 'bg-emerald-500' },
+  pendiente:{ label: 'Pendiente',cls: 'bg-amber-100 text-amber-700 border border-amber-200',       dot: 'bg-amber-500'   },
+  rechazado:{ label: 'Rechazado',cls: 'bg-red-100 text-red-600 border border-red-200',             dot: 'bg-red-500'     },
+};
+
+function NominaReport() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [period, setPeriod]   = useState('biweekly');
+  const [nomFrom, setNomFrom] = useState(() => {
+    const d = new Date(Date.now() - 15 * 86400000);
+    return d.toISOString().slice(0, 10);
+  });
+  const [nomTo, setNomTo]     = useState(today);
+  const [result, setResult]   = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState(null);
+
+  function applyPeriod(id) {
+    const days = PERIODS.find(p => p.id === id)?.days || 15;
+    const t = new Date().toISOString().slice(0, 10);
+    const f = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    setPeriod(id); setNomFrom(f); setNomTo(t);
+  }
+
+  async function generate() {
+    setLoading(true); setError(null); setResult(null);
+    try {
+      const data = await api('/api/reports/nomina', { query: { from: nomFrom, to: nomTo } });
+      setResult(data);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function exportNomina(fmt) {
+    if (!result?.rows?.length) return;
+    const rows = result.rows.map(r => ({
+      'Empleado':      r.name,
+      'WhatsApp':      r.whatsapp || '—',
+      'Estado nómina': NOMINA_STATUS[r.estado_nomina]?.label || r.estado_nomina,
+      'Pagos reales':  r.pagos_reales,
+      'Pagos falsos':  r.pagos_falsos,
+      'Duplicados':    r.pagos_duplicados,
+      'Pendientes':    r.pendientes,
+      'Monto total':   fmtMoney(r.monto_total),
+      'Último pago':   r.ultimo_pago ? fmtDate(r.ultimo_pago) : '—',
+    }));
+    const title = `Cierre de Nómina ${nomFrom} al ${nomTo}`;
+    const filename = `chatpay-nomina-${nomFrom}_${nomTo}`;
+    if (fmt === 'csv')   downloadCsv(rows, filename);
+    if (fmt === 'excel') downloadExcel(rows, filename, title);
+    if (fmt === 'pdf')   printNomina(result, nomFrom, nomTo);
+  }
+
+  function printNomina(data, from, to) {
+    const fmtMny = (n) => n != null
+      ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+      : '—';
+    const statusColor = { pagado: '#059669', pendiente: '#d97706', rechazado: '#dc2626' };
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cierre de Nómina</title>
+    <style>*{box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#1e293b;padding:24px;max-width:960px;margin:0 auto}
+    h1{font-size:22px;color:#059669;margin-bottom:2px}.sub{color:#64748b;font-size:10px;margin-bottom:16px}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+    .stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px}
+    .stat .val{font-size:20px;font-weight:700;color:#059669}.stat .lbl{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em}
+    table{width:100%;border-collapse:collapse}th{background:#059669;color:white;padding:7px 10px;text-align:left;font-size:10px;font-weight:600}
+    td{padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:10px}tr:hover td{background:#f0fdf4}
+    .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-weight:600;font-size:9px}
+    @media print{body{padding:0}.noprint{display:none}}</style></head><body>
+    <h1>ChatPay — Cierre de Nómina</h1>
+    <div class="sub">Período: ${from} al ${to} · Generado: ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}</div>
+    <div class="stats">
+      <div class="stat"><div class="val">${data.summary.total_empleados}</div><div class="lbl">Total empleados</div></div>
+      <div class="stat"><div class="val" style="color:#059669">${data.summary.pagados}</div><div class="lbl">Pagados</div></div>
+      <div class="stat"><div class="val" style="color:#d97706">${data.summary.pendientes}</div><div class="lbl">Pendientes</div></div>
+      <div class="stat"><div class="val" style="color:#dc2626">${data.summary.rechazados}</div><div class="lbl">Rechazados</div></div>
+    </div>
+    <table><thead><tr><th>Empleado</th><th>Estado</th><th>Pagos reales</th><th>Falsos</th><th>Pendientes</th><th>Monto total</th><th>Último pago</th></tr></thead>
+    <tbody>${data.rows.map(r => `<tr>
+      <td><strong>${r.name}</strong></td>
+      <td><span class="badge" style="background:${statusColor[r.estado_nomina]}22;color:${statusColor[r.estado_nomina]}">${NOMINA_STATUS[r.estado_nomina]?.label || r.estado_nomina}</span></td>
+      <td>${r.pagos_reales}</td><td>${r.pagos_falsos}</td><td>${r.pendientes}</td>
+      <td><strong>${fmtMny(r.monto_total)}</strong></td>
+      <td>${r.ultimo_pago ? new Date(r.ultimo_pago).toLocaleDateString('es-CO') : '—'}</td>
+    </tr>`).join('')}</tbody></table>
+    <div style="margin-top:16px;font-size:9px;color:#94a3b8">Total nómina verificada: <strong>${fmtMny(data.summary.monto_total)}</strong> · ChatPay © ${new Date().getFullYear()}</div>
+    </body></html>`);
+    w.document.close(); w.focus(); setTimeout(() => w.print(), 500);
+  }
+
+  const summary = result?.summary;
+
+  return (
+    <div className="card mt-8 border-2 border-emerald-100 animate-fade-up delay-400">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 rounded-2xl bg-emerald-100 grid place-items-center">
+          <CalendarCheck size={20} className="text-emerald-600" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-slate-800">Cierre de Nómina</h2>
+          <p className="text-xs text-slate-500">Genera el resumen del período y descarga en PDF, Excel o CSV.</p>
+        </div>
+      </div>
+
+      {/* Selector de período */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {PERIODS.map(p => (
+          <button
+            key={p.id}
+            onClick={() => applyPeriod(p.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors duration-150 ${
+              period === p.id
+                ? 'bg-emerald-500 text-white border-emerald-500'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'
+            }`}
+          >{p.label}</button>
+        ))}
+      </div>
+
+      {/* Fechas personalizadas */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Desde</label>
+          <input type="date" className="input w-full" value={nomFrom} max={nomTo}
+            onChange={(e) => { setNomFrom(e.target.value); setPeriod(''); }} />
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Hasta</label>
+          <input type="date" className="input w-full" value={nomTo} min={nomFrom} max={today}
+            onChange={(e) => { setNomTo(e.target.value); setPeriod(''); }} />
+        </div>
+      </div>
+
+      <button onClick={generate} disabled={loading} className="btn btn-primary w-full mb-5">
+        {loading
+          ? <><Loader2 size={15} className="animate-spin" /> Generando…</>
+          : <><CalendarCheck size={15} /> Generar cierre de nómina</>}
+      </button>
+
+      {error && (
+        <div className="bg-red-50 border border-red-100 text-red-600 rounded-xl px-4 py-3 text-sm mb-4">
+          ⚠ {error}
+        </div>
+      )}
+
+      {/* Resultado */}
+      {result && (
+        <div className="animate-fade-up">
+          {/* KPIs resumen */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            {[
+              { label: 'Empleados', value: summary.total_empleados, color: 'text-slate-700' },
+              { label: 'Pagados',   value: summary.pagados,          color: 'text-emerald-600' },
+              { label: 'Pendientes',value: summary.pendientes,        color: 'text-amber-600'  },
+              { label: 'Rechazados',value: summary.rechazados,        color: 'text-red-500'    },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-center">
+                <div className={`text-2xl font-bold ${color}`}>{value}</div>
+                <div className="text-xs text-slate-500">{label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-emerald-50 rounded-xl px-4 py-3 flex items-center justify-between mb-4 border border-emerald-100">
+            <span className="text-sm font-medium text-emerald-800">Total nómina verificada</span>
+            <span className="text-xl font-bold text-emerald-700">{fmtMoney(summary.monto_total)}</span>
+          </div>
+
+          {/* Tabla empleados */}
+          <div className="rounded-xl border border-slate-100 overflow-hidden mb-4">
+            <table className="w-full text-sm">
+              <thead className="bg-emerald-50 border-b border-emerald-100">
+                <tr>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-emerald-700">Empleado</th>
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-emerald-700">Estado</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold text-emerald-700 hidden sm:table-cell">Pagos ✓</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold text-emerald-700 hidden sm:table-cell">Falsos</th>
+                  <th className="px-3 py-2.5 text-right text-xs font-semibold text-emerald-700">Monto</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {result.rows.map((r) => {
+                  const cfg = NOMINA_STATUS[r.estado_nomina] || NOMINA_STATUS.pendiente;
+                  return (
+                    <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-3 py-2.5 font-medium text-slate-800">{r.name}</td>
+                      <td className="px-3 py-2.5">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.cls}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />{cfg.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-slate-600 hidden sm:table-cell">{r.pagos_reales}</td>
+                      <td className="px-3 py-2.5 text-right hidden sm:table-cell">
+                        {r.pagos_falsos > 0
+                          ? <span className="text-red-500 font-medium">{r.pagos_falsos}</span>
+                          : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-bold text-emerald-700">{fmtMoney(r.monto_total) || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Botones de exportación */}
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => exportNomina('pdf')}   className="btn btn-primary text-sm flex items-center gap-1.5"><Printer size={14} /> PDF</button>
+            <button onClick={() => exportNomina('excel')} className="btn btn-ghost text-sm flex items-center gap-1.5"><FileSpreadsheet size={14} /> Excel</button>
+            <button onClick={() => exportNomina('csv')}   className="btn btn-ghost text-sm flex items-center gap-1.5"><FileText size={14} /> CSV</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Config de reportes y formatos ──────────────────────────────
@@ -267,7 +499,9 @@ export default function Reports() {
           </div>
         </div>
       </div>
+
+      {/* ── Cierre de Nómina ── */}
+      <NominaReport />
     </div>
   );
 }
-

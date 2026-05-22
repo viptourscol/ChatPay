@@ -42,19 +42,17 @@ function StatusBadge({ status }) {
   );
 }
 
-function KpiCard({ Icon, label, value, sub, accent, bg }) {
+function KpiCard({ Icon, label, value, sub, iconBg = 'bg-emerald-50', iconColor = 'text-emerald-600' }) {
   const str = String(value ?? '');
   const fontSize = str.length > 12 ? 'text-sm' : str.length > 8 ? 'text-base' : 'text-xl';
   return (
-    <div className="card flex items-center gap-3 py-3">
-      <div className={`w-10 h-10 rounded-xl grid place-items-center shrink-0 ${bg || 'bg-slate-100'}`}>
-        <Icon size={19} className={accent || 'text-slate-500'} />
+    <div className="rounded-2xl bg-white border border-emerald-100/60 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-4 sm:p-5">
+      <div className={`w-10 h-10 rounded-xl grid place-items-center mb-3 ${iconBg}`}>
+        <Icon size={18} className={iconColor} />
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-xs text-slate-400 truncate">{label}</div>
-        <div className={`${fontSize} font-semibold leading-tight break-all ${accent || 'text-slate-900'}`}>{value}</div>
-        {sub && <div className="text-[11px] text-slate-400">{sub}</div>}
-      </div>
+      <div className={`${fontSize} font-bold text-slate-900 leading-none mb-1`}>{value}</div>
+      <div className="text-xs font-medium text-slate-500 truncate">{label}</div>
+      {sub && <div className="text-[11px] text-slate-400 mt-1 truncate">{sub}</div>}
     </div>
   );
 }
@@ -74,17 +72,17 @@ function Pagination({ page, total, pageSize, onChange }) {
       <span className="text-sm text-slate-500">{from}–{to} de {total} transacciones</span>
       <div className="flex items-center gap-1">
         <button disabled={page <= 1} onClick={() => onChange(page - 1)}
-          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition">
+          className="w-8 h-8 rounded-lg border border-emerald-100 flex items-center justify-center text-slate-500 hover:bg-emerald-50 disabled:opacity-30 transition">
           <ChevronLeft size={15} />
         </button>
         {pages.map(p => (
           <button key={p} onClick={() => onChange(p)}
             className={`w-8 h-8 rounded-lg border text-sm font-medium transition ${
-              p === page ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              p === page ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-emerald-100 text-slate-600 hover:bg-emerald-50'
             }`}>{p}</button>
         ))}
         <button disabled={page >= totalPages} onClick={() => onChange(page + 1)}
-          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition">
+          className="w-8 h-8 rounded-lg border border-emerald-100 flex items-center justify-center text-slate-500 hover:bg-emerald-50 disabled:opacity-30 transition">
           <ChevronRight size={15} />
         </button>
       </div>
@@ -115,19 +113,34 @@ export default function Ingresos() {
 
   return (
     <div>
-      <header className="mb-6 flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="font-serif text-3xl">Ingresos</h1>
-          <p className="text-slate-500 text-sm">Transferencias recibidas desde Bancolombia.</p>
+      {/* ── Header ── */}
+      <header className="mb-6 flex items-center justify-between gap-4 flex-wrap animate-fade-up">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-100 grid place-items-center shrink-0">
+            <TrendingUp size={20} className="text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Finanzas</p>
+            <h1 className="font-serif text-2xl md:text-3xl text-slate-900 leading-tight">Ingresos</h1>
+          </div>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowFilters(v => !v)}
-            className={`btn text-sm flex items-center gap-1.5 ${showFilters ? 'btn-primary' : 'btn-ghost'}`}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors duration-150 ${
+              showFilters
+                ? 'bg-emerald-500 text-white border-emerald-500'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
+            }`}
           >
-            <SlidersHorizontal size={14} /> Filtros {hasFilters && <span className="bg-white/30 rounded-full px-1 text-xs">activos</span>}
+            <SlidersHorizontal size={14} />
+            Filtros
+            {hasFilters && <span className="bg-white/30 rounded-full px-1.5 py-0.5 text-[10px] font-bold">activos</span>}
           </button>
-          <button onClick={() => refetch()} className="btn btn-ghost text-sm flex items-center gap-1.5">
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-white text-slate-600 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700 transition-colors duration-150"
+          >
             <RefreshCw size={14} /> Refrescar
           </button>
         </div>
@@ -136,18 +149,18 @@ export default function Ingresos() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard Icon={DollarSign} label="Total este mes" value={fmtMoney(stats?.monthTotal)}
-          sub={`${stats?.monthCount ?? 0} transacciones`} bg="bg-brand-50" accent="text-brand-600" />
+          sub={`${stats?.monthCount ?? 0} transacciones`} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
         <KpiCard Icon={TrendingUp} label="Total histórico" value={fmtMoney(stats?.allTimeTotal)}
-          sub={`${stats?.allTimeCount ?? 0} en total`} bg="bg-emerald-50" accent="text-emerald-600" />
+          sub={`${stats?.allTimeCount ?? 0} en total`} iconBg="bg-emerald-100" iconColor="text-emerald-700" />
         <KpiCard Icon={DollarSign} label="Promedio por transacción" value={fmtMoney(stats?.allTimeAvg)}
-          bg="bg-slate-100" accent="text-slate-600" />
+          iconBg="bg-emerald-50" iconColor="text-emerald-600" />
         <KpiCard Icon={Clock} label="Pendientes de verificar" value={stats?.pendingCount ?? '—'}
-          sub="Sin comprobante recibido" bg="bg-amber-50" accent="text-amber-500" />
+          sub="Sin comprobante recibido" iconBg="bg-amber-50" iconColor="text-amber-500" />
       </div>
 
       {/* Filtros */}
       {showFilters && (
-        <div className="card mb-4 border border-slate-200">
+        <div className="bg-white rounded-2xl border border-emerald-100/60 shadow-sm p-5 mb-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div className="col-span-2 md:col-span-3">
               <label className="text-xs text-slate-500 mb-1 block">Buscar remitente</label>
@@ -200,19 +213,19 @@ export default function Ingresos() {
       )}
 
       {/* Tabla — solo md+ */}
-      <div className="card overflow-hidden p-0 hidden md:block">
+      <div className="bg-white rounded-2xl border border-emerald-100/60 shadow-sm overflow-hidden hidden md:block">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-100 text-left">
+          <thead className="bg-emerald-50/60 border-b border-emerald-100/60 text-left">
             <tr>
-              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha / Hora</th>
-              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Remitente</th>
-              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Descripción</th>
-              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Referencia</th>
-              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
-              <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Monto</th>
+              <th className="px-4 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wide">Fecha / Hora</th>
+              <th className="px-4 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wide">Remitente</th>
+              <th className="px-4 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wide hidden md:table-cell">Descripción</th>
+              <th className="px-4 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wide hidden lg:table-cell">Referencia</th>
+              <th className="px-4 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wide">Estado</th>
+              <th className="px-4 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wide text-right">Monto</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50/80">
             {isLoading && (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
@@ -266,36 +279,36 @@ export default function Ingresos() {
       {/* Cards — solo móvil */}
       <div className="space-y-3 md:hidden">
         {isLoading && (
-          <div className="card text-center py-8 text-slate-400">
-            <div className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <div className="bg-white rounded-2xl border border-emerald-100/60 shadow-sm text-center py-8 text-slate-400">
+            <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
             Cargando…
           </div>
         )}
         {!isLoading && (data?.items || []).length === 0 && (
-          <div className="card text-center py-10">
+          <div className="bg-white rounded-2xl border border-emerald-100/60 shadow-sm text-center py-10">
             <Search size={32} className="mx-auto text-slate-300 mb-2" />
             <div className="text-slate-400 text-sm">Sin transacciones</div>
           </div>
         )}
         {(data?.items || []).map((t) => (
-          <div key={t.id} className="card">
+          <div key={t.id} className="bg-white rounded-2xl border border-emerald-100/60 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 text-xs font-bold grid place-items-center shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold grid place-items-center shrink-0">
                   {initials(t.sender_name)}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-medium text-slate-800 text-sm truncate">{t.sender_name || '—'}</div>
-                  <div className="text-xs text-slate-400">{fmtDate(t.transaction_date)} {fmtTime(t.transaction_date)}</div>
+                  <div className="font-semibold text-slate-800 text-sm truncate">{t.sender_name || '—'}</div>
+                  <div className="text-xs text-slate-400">{fmtDate(t.transaction_date)} · {fmtTime(t.transaction_date)}</div>
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="font-bold text-emerald-700">{fmtMoney(t.amount)}</div>
-                <StatusBadge status={t.status} />
+                <div className="font-bold text-emerald-700 text-base">{fmtMoney(t.amount)}</div>
+                <div className="mt-1"><StatusBadge status={t.status} /></div>
               </div>
             </div>
             {(t.raw_snippet || t.raw_subject) && (
-              <div className="text-xs text-slate-400 mt-1 line-clamp-2">{t.raw_snippet || t.raw_subject}</div>
+              <div className="text-xs text-slate-400 mt-2 line-clamp-2 border-t border-slate-50 pt-2">{t.raw_snippet || t.raw_subject}</div>
             )}
           </div>
         ))}
