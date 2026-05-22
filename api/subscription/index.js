@@ -87,16 +87,18 @@ export default async function handler(req, res) {
     if (!company) return;
 
     const companyId = company.id;
-    const [verifications_used, { count: employees_count }, { count: bank_accounts_count }] = await Promise.all([
+    const [verifications_used, { count: employees_count }, { count: bank_accounts_count }, { data: payments }] = await Promise.all([
       getMonthlyVerificationCount(companyId),
       supabaseAdmin.from('employees').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_active', true),
       supabaseAdmin.from('company_bank_accounts').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
+      supabaseAdmin.from('subscription_payments').select('id, plan, months, amount_cop, status, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(10),
     ]);
 
     return res.json({
       plan:                    company.plan || 'starter',
       subscription_status:     company.subscription_status || 'trial',
       trial_ends_at:           company.trial_ends_at || null,
+      subscription_expires_at: company.subscription_expires_at || null,
       is_active:               company.is_active,
       max_employees:           company.max_employees || 1,
       max_verifications_month: company.max_verifications_month || 200,
@@ -104,6 +106,7 @@ export default async function handler(req, res) {
       verifications_used,
       employees_count:         employees_count || 0,
       bank_accounts_count:     bank_accounts_count || 0,
+      payments:                payments || [],
     });
   }
 
@@ -173,12 +176,24 @@ export default async function handler(req, res) {
         subscription_status:     'active',
         is_active:               true,
         trial_ends_at:           null,
+        subscription_expires_at: vExpiresAt.toISOString(),
         max_employees:           vLimits.max_employees,
         max_verifications_month: vLimits.max_verifications_month,
         max_bank_accounts:       vLimits.max_bank_accounts,
       }).eq('id', vCompany.id);
 
       if (vDbErr) return res.status(500).json({ error: vDbErr.message });
+
+      // Registrar el pago en el historial
+      await supabaseAdmin.from('subscription_payments').insert({
+        company_id:  vCompany.id,
+        wompi_tx_id: transactionId,
+        plan:        vPlan,
+        months:      vMonths,
+        amount_cop:  wtx.amount_in_cents ? Math.round(wtx.amount_in_cents / 100) : 0,
+        status:      'approved',
+      }).select().maybeSingle(); // ignorar error si la tabla no existe aún
+
       console.log(`[verify] Suscripción activada: empresa=${vCompany.id} plan=${vPlan} meses=${vMonths}`);
       return res.json({ activated: true, plan: vPlan, months: vMonths });
     }

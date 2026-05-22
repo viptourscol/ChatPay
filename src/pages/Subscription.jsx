@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw, Calendar, CreditCard } from 'lucide-react';
 
 const PLANS = {
   starter: {
@@ -117,8 +117,10 @@ export default function Subscription() {
   const status = STATUS_LABELS[sub?.subscription_status] || STATUS_LABELS.trial;
   const StatusIcon = status.icon;
 
-  const trialEndsAt = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null;
-  const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt - new Date()) / 86400000)) : null;
+  const trialEndsAt   = sub?.trial_ends_at       ? new Date(sub.trial_ends_at)       : null;
+  const subExpiresAt  = sub?.subscription_expires_at ? new Date(sub.subscription_expires_at) : null;
+  const daysLeft      = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt - new Date()) / 86400000)) : null;
+  const subDaysLeft   = subExpiresAt ? Math.max(0, Math.ceil((subExpiresAt - new Date()) / 86400000)) : null;
   const isTrial = sub?.subscription_status === 'trial';
   const isExpired = isTrial && daysLeft !== null && daysLeft <= 0;
 
@@ -197,6 +199,15 @@ export default function Subscription() {
           {isTrial && trialEndsAt && !isExpired && (
             <p className="text-slate-400 text-xs mt-0.5">Vence: {trialEndsAt.toLocaleDateString('es-CO')}</p>
           )}
+          {!isTrial && subExpiresAt && subDaysLeft !== null && (
+            <p className="text-slate-500 text-sm mt-1 font-medium">{subDaysLeft} días restantes</p>
+          )}
+          {!isTrial && subExpiresAt && (
+            <p className="text-slate-400 text-xs mt-0.5">Vence: {subExpiresAt.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+          )}
+          {!isTrial && !subExpiresAt && (
+            <p className="text-slate-400 text-xs mt-1">Sin fecha de vencimiento registrada</p>
+          )}
         </div>
 
         {/* Verificaciones del mes */}
@@ -218,6 +229,42 @@ export default function Subscription() {
           <UsageBar used={sub?.bank_accounts_count ?? 0} max={sub?.max_bank_accounts ?? 1} label="Cuentas bancarias" />
         </div>
       </div>
+
+      {/* Historial de pagos */}
+      {sub?.payments?.length > 0 && (
+        <div className="card mb-8 animate-fade-up delay-250">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard size={18} className="text-slate-500" />
+            <h2 className="font-semibold text-slate-800">Historial de pagos</h2>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {sub.payments.map((p) => {
+              const planInfo = PLANS[p.plan] || { label: p.plan, color: 'slate' };
+              const fecha    = new Date(p.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+              const meses    = p.months === 1 ? '1 mes' : `${p.months} meses`;
+              return (
+                <div key={p.id} className="flex items-center justify-between py-3 gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full bg-${planInfo.color}-100 flex items-center justify-center shrink-0`}>
+                      <Calendar size={14} className={`text-${planInfo.color}-600`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Plan {planInfo.label} · {meses}</p>
+                      <p className="text-xs text-slate-400">{fecha}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-slate-800">{fmt(p.amount_cop)}</p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      p.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>{p.status === 'approved' ? 'Aprobado' : p.status}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Comparativa de planes */}
       <div className="animate-fade-up delay-300">
