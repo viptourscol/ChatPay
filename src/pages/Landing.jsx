@@ -57,22 +57,37 @@ export default function Landing() {
       </header>
 
       {/* HERO */}
-      <section className="pt-32 pb-24 px-6 bg-gradient-to-b from-slate-50 to-white text-center">
-        <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 text-xs text-slate-600 mb-8 shadow-sm">
-          <Smartphone size={13} /> Verificación por WhatsApp
+      <section className="pt-28 pb-16 px-6 bg-gradient-to-b from-slate-50 to-white">
+        <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
+
+          {/* Texto izquierda */}
+          <div className="flex-1 text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 text-xs text-slate-600 mb-6 shadow-sm">
+              <Smartphone size={13} /> Verificación por WhatsApp
+            </div>
+            <h1 className="text-5xl md:text-6xl font-serif leading-tight">
+              <em className="not-italic font-serif italic">Verifica</em> transferencias<br />desde WhatsApp
+            </h1>
+            <p className="mt-6 text-slate-500 text-lg leading-relaxed max-w-lg mx-auto lg:mx-0">
+              Tus empleados envían foto del comprobante a nuestro WhatsApp. En segundos
+              les confirmamos si el pago es real, falso o duplicado.
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+              <Link to="/registro" className="btn btn-primary text-base px-8 py-3">Crear cuenta gratis</Link>
+              <a href="#como-funciona" className="btn btn-ghost text-base px-8 py-3">Ver cómo funciona</a>
+            </div>
+            <p className="mt-6 text-sm text-slate-400">Verificación 100% automática · Bancolombia · Respuesta en segundos</p>
+          </div>
+
+          {/* Imagen derecha */}
+          <div className="flex-1 flex justify-center lg:justify-end">
+            <img
+              src="/hero-banner.png"
+              alt="ChatPay verifica pagos por WhatsApp"
+              className="w-full max-w-md lg:max-w-lg xl:max-w-xl object-contain drop-shadow-xl"
+            />
+          </div>
         </div>
-        <h1 className="text-5xl md:text-6xl font-serif leading-tight max-w-3xl mx-auto">
-          <em className="not-italic font-serif italic">Verifica</em> transferencias<br />desde WhatsApp
-        </h1>
-        <p className="mt-6 text-slate-500 text-lg max-w-xl mx-auto leading-relaxed">
-          Tus empleados envían foto del comprobante a nuestro WhatsApp. En segundos
-          les confirmamos si el pago es real, falso o duplicado.
-        </p>
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/registro" className="btn btn-primary text-base px-8 py-3">Crear cuenta gratis</Link>
-          <a href="#como-funciona" className="btn btn-ghost text-base px-8 py-3">Ver cómo funciona</a>
-        </div>
-        <p className="mt-8 text-sm text-slate-400">Verificación 100% automática · Bancolombia · Respuesta en segundos</p>
       </section>
 
       {/* PROBLEMA */}
