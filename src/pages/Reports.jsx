@@ -5,6 +5,8 @@ import {
   Printer, CheckCircle2, Clock, XCircle, Users, ShieldCheck, Loader2,
   CalendarCheck, ChevronDown, AlertTriangle
 } from 'lucide-react';
+import { useSubscription } from '../hooks/useSubscription.js';
+import FeatureGate from '../components/FeatureGate.jsx';
 
 // ─── Utilidades ──────────────────────────────────────────────────
 
@@ -501,7 +503,16 @@ export default function Reports() {
       </div>
 
       {/* ── Cierre de Nómina ── */}
-      <NominaReport />
+      <NominaGated />
     </div>
+  );
+}
+
+function NominaGated() {
+  const { can } = useSubscription();
+  return (
+    <FeatureGate allowed={can('nomina')} requiredPlan="pro" feature="Cierre de Nómina">
+      <NominaReport />
+    </FeatureGate>
   );
 }

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { ChevronLeft, ChevronRight, TrendingDown, DollarSign, FileText, Pencil, Trash2 } from 'lucide-react';
+import { useSubscription } from '../hooks/useSubscription.js';
+import FeatureGate from '../components/FeatureGate.jsx';
 
 function Pagination({ page, total, pageSize, onChange }) {
   const totalPages = Math.ceil(total / pageSize) || 1;
@@ -182,6 +184,9 @@ export default function Egresos() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['egresos'] }); setDeleting(null); }
   });
 
+  const { can } = useSubscription();
+  const canUseEgresos = can('egresos_gmail');
+
   function applyFilters() { setPage(1); setApplied({ ...filters }); }
   function clearFilters() { setFilters({ from: '', to: '', category: '' }); setApplied({}); setPage(1); }
 
@@ -195,11 +200,17 @@ export default function Egresos() {
           <h1 className="font-serif text-3xl">Egresos</h1>
           <p className="text-slate-500 text-sm">Gastos y pagos realizados por tu empresa.</p>
         </div>
-        <button onClick={() => setModal('new')} className="btn btn-primary whitespace-nowrap text-sm sm:text-base">
+        <button disabled={!canUseEgresos} onClick={() => canUseEgresos && setModal('new')} className="btn btn-primary whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed">
           <span className="sm:hidden">+ Nuevo</span>
           <span className="hidden sm:inline">+ Registrar egreso</span>
         </button>
       </header>
+
+      {!canUseEgresos && (
+        <div className="mb-6">
+          <FeatureGate allowed={false} requiredPlan="pro" feature="Egresos automáticos desde Gmail" compact />
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

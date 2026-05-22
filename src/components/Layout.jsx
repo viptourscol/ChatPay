@@ -3,9 +3,10 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { PaymentRequiredError } from '../lib/api.js';
 import PaymentWall from './PaymentWall.jsx';
+import { useSubscription } from '../hooks/useSubscription.js';
 import {
   LayoutDashboard, ShieldCheck, TrendingUp, TrendingDown,
-  Users, BarChart2, Settings, LogOut, Building2, ShieldAlert, CreditCard
+  Users, BarChart2, Settings, LogOut, Building2, ShieldAlert, CreditCard, Lock
 } from 'lucide-react';
 
 // Email del super admin — debe coincidir con ADMIN_EMAILS en el backend
@@ -15,7 +16,7 @@ const MODULES = [
   { to: '/dashboard',     label: 'Dashboard',      Icon: LayoutDashboard },
   { to: '/verificaciones',label: 'Verificaciones',  Icon: ShieldCheck },
   { to: '/ingresos',      label: 'Ingresos',        Icon: TrendingUp },
-  { to: '/egresos',       label: 'Egresos',         Icon: TrendingDown },
+  { to: '/egresos',       label: 'Egresos',         Icon: TrendingDown,  feature: 'egresos_gmail' },
   { to: '/empleados',     label: 'Empleados',       Icon: Users },
   { to: '/reportes',      label: 'Reportes',        Icon: BarChart2 },
 ];
@@ -64,6 +65,7 @@ export default function Layout() {
 
   const initials = user?.email?.[0]?.toUpperCase() || '?';
   const companyName = company?.name || user?.email?.split('@')[0] || 'Mi empresa';
+  const { can } = useSubscription();
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -107,7 +109,9 @@ export default function Layout() {
         <nav className="flex-1 px-3 pb-3">
           <div className="text-[10px] uppercase tracking-widest text-slate-400 px-2 mb-2 mt-3">Módulos</div>
           <div className="space-y-0.5">
-            {MODULES.map((l) => (
+            {MODULES.map((l) => {
+              const locked = l.feature && !can(l.feature);
+              return (
               <NavLink
                 key={l.to}
                 to={l.to}
@@ -117,14 +121,18 @@ export default function Layout() {
                   `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97] ${
                     isActive
                       ? 'bg-brand-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100 hover:translate-x-0.5'
+                      : locked
+                        ? 'text-slate-400 hover:bg-slate-50'
+                        : 'text-slate-600 hover:bg-slate-100 hover:translate-x-0.5'
                   }`
                 }
               >
                 <l.Icon size={16} className="shrink-0" />
-                <span>{l.label}</span>
+                <span className="flex-1">{l.label}</span>
+                {locked && <Lock size={12} className="shrink-0 text-slate-300" />}
               </NavLink>
-            ))}
+              );
+            })}
           </div>
 
           {/* Configuración separada */}
