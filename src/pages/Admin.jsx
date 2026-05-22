@@ -10,9 +10,15 @@ import {
 
 /* ─── Constantes ─────────────────────────────────────────── */
 const PLAN_OPTS = [
-  { value: 'starter',    label: 'Starter',    employees: 1,      verifications: 200,    bankAccounts: 1,      price: 49900,  color: 'blue' },
-  { value: 'business',   label: 'Business',   employees: 20,     verifications: 1000,   bankAccounts: 3,      price: 129900, color: 'emerald' },
-  { value: 'enterprise', label: 'Enterprise', employees: 999999, verifications: 999999, bankAccounts: 999999, price: 299900, color: 'purple' },
+  { value: 'free',        label: 'Free Trial',  employees: 3,      verifications: 50,     bankAccounts: 1,      adminAlerts: 10,     adminNumbers: 1, price: 0,      color: 'slate'   },
+  { value: 'basico',      label: 'Básico',      employees: 2,      verifications: 300,    bankAccounts: 1,      adminAlerts: 0,      adminNumbers: 0, price: 49900,  color: 'blue'    },
+  { value: 'estandar',    label: 'Estándar',    employees: 5,      verifications: 800,    bankAccounts: 2,      adminAlerts: 20,     adminNumbers: 1, price: 99900,  color: 'emerald' },
+  { value: 'pro',         label: 'Pro',         employees: 15,     verifications: 2500,   bankAccounts: 5,      adminAlerts: 50,     adminNumbers: 2, price: 199900, color: 'violet'  },
+  { value: 'empresarial', label: 'Empresarial', employees: 999999, verifications: 999999, bankAccounts: 999999, adminAlerts: 999999, adminNumbers: 2, price: 349900, color: 'purple'  },
+  // Legacy — mantener compatibilidad con cuentas existentes
+  { value: 'starter',    label: 'Starter (legacy)',    employees: 1,      verifications: 200,    bankAccounts: 1,      adminAlerts: 0,      adminNumbers: 0, price: 49900,  color: 'blue'   },
+  { value: 'business',   label: 'Business (legacy)',   employees: 20,     verifications: 1000,   bankAccounts: 3,      adminAlerts: 20,     adminNumbers: 1, price: 129900, color: 'emerald'},
+  { value: 'enterprise', label: 'Enterprise (legacy)', employees: 999999, verifications: 999999, bankAccounts: 999999, adminAlerts: 999999, adminNumbers: 2, price: 299900, color: 'purple' },
 ];
 
 const STATUS_OPTS = [
@@ -23,9 +29,11 @@ const STATUS_OPTS = [
 ];
 
 const planColorMap = {
-  blue:    { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    ring: 'ring-blue-200' },
-  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', ring: 'ring-emerald-200' },
-  purple:  { bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200',  ring: 'ring-purple-200' },
+  slate:   { bg: 'bg-slate-100',   text: 'text-slate-600',   border: 'border-slate-200',   ring: 'ring-slate-200'   },
+  blue:    { bg: 'bg-blue-50',     text: 'text-blue-700',    border: 'border-blue-200',    ring: 'ring-blue-200'    },
+  emerald: { bg: 'bg-emerald-50',  text: 'text-emerald-700', border: 'border-emerald-200', ring: 'ring-emerald-200' },
+  violet:  { bg: 'bg-violet-50',   text: 'text-violet-700',  border: 'border-violet-200',  ring: 'ring-violet-200'  },
+  purple:  { bg: 'bg-purple-50',   text: 'text-purple-700',  border: 'border-purple-200',  ring: 'ring-purple-200'  },
 };
 
 const statusColorMap = {
@@ -46,7 +54,7 @@ function PlanBadge({ plan }) {
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${clr.bg} ${clr.text} ${clr.border}`}>
       {plan === 'enterprise' && <Crown size={10} />}
-      {opt?.label || plan || 'Starter'}
+      {opt?.label || plan || 'Básico'}
     </span>
   );
 }
@@ -95,7 +103,7 @@ function StatCard({ icon: Icon, label, value, sub, color = 'brand' }) {
 /* ─── EditModal ──────────────────────────────────────────── */
 function EditModal({ company, onClose, onSave, isPending }) {
   const [form, setForm] = useState({
-    plan:                    company.plan || 'starter',
+    plan:                    company.plan || 'basico',
     subscription_status:     company.subscription_status || 'trial',
     trial_ends_at:           company.trial_ends_at ? company.trial_ends_at.slice(0, 10) : '',
     subscription_expires_at: company.subscription_expires_at ? company.subscription_expires_at.slice(0, 10) : '',
@@ -111,6 +119,8 @@ function EditModal({ company, onClose, onSave, isPending }) {
       max_employees:           opt.employees,
       max_verifications_month: opt.verifications,
       max_bank_accounts:       opt.bankAccounts,
+      max_admin_alerts:        opt.adminAlerts,
+      max_admin_numbers:       opt.adminNumbers,
     }));
   }
 
@@ -161,8 +171,8 @@ function EditModal({ company, onClose, onSave, isPending }) {
           {/* Plan */}
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">Plan</label>
-            <div className="grid grid-cols-3 gap-2">
-              {PLAN_OPTS.map(opt => {
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+              {PLAN_OPTS.filter(o => !['starter','business','enterprise'].includes(o.value)).map(opt => {
                 const clr    = planColorMap[opt.color];
                 const active = form.plan === opt.value;
                 return (
@@ -174,14 +184,35 @@ function EditModal({ company, onClose, onSave, isPending }) {
                     }`}
                   >
                     <div className="flex items-center gap-1 mb-0.5">
-                      {opt.value === 'enterprise' && <Crown size={10} />}
+                      {opt.value === 'empresarial' && <Crown size={10} />}
                       <span className="text-xs font-bold">{opt.label}</span>
                     </div>
-                    <div className="text-xs opacity-70">{fmtPrice(opt.price)}/mes</div>
+                    <div className="text-xs opacity-70">{opt.price === 0 ? 'Gratis 14d' : `${fmtPrice(opt.price)}/mes`}</div>
                   </button>
                 );
               })}
             </div>
+            {/* Legacy plans — solo si la empresa ya tiene uno */}
+            {['starter','business','enterprise'].includes(form.plan) && (
+              <div className="mt-1">
+                <p className="text-[10px] text-slate-400 mb-1">Plan legacy activo:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {PLAN_OPTS.filter(o => ['starter','business','enterprise'].includes(o.value)).map(opt => {
+                    const clr    = planColorMap[opt.color];
+                    const active = form.plan === opt.value;
+                    return (
+                      <button key={opt.value} onClick={() => applyPlan(opt.value)}
+                        className={`rounded-xl border-2 p-2 text-left transition-all opacity-70 ${
+                          active ? `${clr.bg} ${clr.border} ${clr.text} ring-2 ${clr.ring}` : 'border-slate-200 text-slate-500'
+                        }`}>
+                        <div className="text-[10px] font-bold">{opt.label}</div>
+                        <div className="text-[10px] opacity-70">{fmtPrice(opt.price)}/mes</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Estado */}
