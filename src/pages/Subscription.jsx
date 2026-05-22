@@ -185,28 +185,68 @@ export default function Subscription() {
           </div>
           <p className="text-slate-500 text-sm">{fmt(plan.price)}<span className="text-xs">/mes</span></p>
         </div>
+        <div className="card animate-fade-up delay-100 col-span-1 md:col-span-2">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Estado de suscripción</p>
 
-        {/* Estado */}
-        <div className="card animate-fade-up delay-100">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Estado</p>
-          <div className={`flex items-center gap-2 text-${status.color}-600`}>
-            <StatusIcon size={18} />
-            <span className="text-xl font-bold">{status.label}</span>
-          </div>
-          {isTrial && daysLeft !== null && !isExpired && (
-            <p className="text-slate-500 text-sm mt-1">{daysLeft} días restantes</p>
+          {/* Trial activo */}
+          {isTrial && !isExpired && trialEndsAt && (() => {
+            const total = 14; // días de trial
+            const used  = total - (daysLeft ?? 0);
+            const pct   = Math.min(100, Math.round((used / total) * 100));
+            const barColor = daysLeft <= 3 ? 'bg-red-400' : daysLeft <= 7 ? 'bg-amber-400' : 'bg-emerald-400';
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className={`flex items-center gap-1.5 text-amber-600`}><Clock size={15}/><span className="font-semibold text-sm">Período de prueba</span></div>
+                  <span className={`text-sm font-bold ${daysLeft <= 3 ? 'text-red-600' : 'text-amber-600'}`}>{daysLeft} días restantes</span>
+                </div>
+                <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-1">
+                  <div className={`h-full ${barColor} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+                </div>
+                <p className="text-xs text-slate-400">Vence el {trialEndsAt.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              </div>
+            );
+          })()}
+
+          {/* Trial vencido */}
+          {isTrial && isExpired && (
+            <div className="flex items-center gap-2 text-red-600">
+              <XCircle size={16}/>
+              <span className="font-semibold text-sm">Período de prueba vencido</span>
+            </div>
           )}
-          {isTrial && trialEndsAt && !isExpired && (
-            <p className="text-slate-400 text-xs mt-0.5">Vence: {trialEndsAt.toLocaleDateString('es-CO')}</p>
-          )}
-          {!isTrial && subExpiresAt && subDaysLeft !== null && (
-            <p className="text-slate-500 text-sm mt-1 font-medium">{subDaysLeft} días restantes</p>
-          )}
-          {!isTrial && subExpiresAt && (
-            <p className="text-slate-400 text-xs mt-0.5">Vence: {subExpiresAt.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-          )}
+
+          {/* Suscripción activa con fecha */}
+          {!isTrial && subExpiresAt && (() => {
+            const totalDays = 30; // referencia visual (1 mes)
+            const pct       = Math.min(100, Math.round((subDaysLeft / totalDays) * 100));
+            const barColor  = subDaysLeft <= 5 ? 'bg-red-400' : subDaysLeft <= 15 ? 'bg-amber-400' : 'bg-emerald-400';
+            const textColor = subDaysLeft <= 5 ? 'text-red-600' : subDaysLeft <= 15 ? 'text-amber-600' : 'text-emerald-600';
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className={`flex items-center gap-1.5 ${textColor}`}><CheckCircle2 size={15}/><span className="font-semibold text-sm">Activa</span></div>
+                  <span className={`text-sm font-bold ${textColor}`}>{subDaysLeft} días restantes</span>
+                </div>
+                <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-1">
+                  <div className={`h-full ${barColor} rounded-full transition-all duration-700`} style={{ width: `${Math.max(2, pct)}%` }} />
+                </div>
+                <p className="text-xs text-slate-400">Vence el {subExpiresAt.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              </div>
+            );
+          })()}
+
+          {/* Activa sin fecha */}
           {!isTrial && !subExpiresAt && (
-            <p className="text-slate-400 text-xs mt-1">Sin fecha de vencimiento registrada</p>
+            <div>
+              <div className="flex items-center gap-1.5 text-emerald-600 mb-2">
+                <CheckCircle2 size={15}/><span className="font-semibold text-sm">Activa</span>
+              </div>
+              <div className="h-2.5 bg-emerald-100 rounded-full overflow-hidden mb-1">
+                <div className="h-full bg-emerald-400 rounded-full w-full opacity-40" />
+              </div>
+              <p className="text-xs text-slate-400">Fecha de vencimiento no registrada. Contacta soporte.</p>
+            </div>
           )}
         </div>
 
