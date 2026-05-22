@@ -168,12 +168,26 @@ function TabEmpresa() {
 
         <button
           type="button"
-          onClick={() => set('notification_whatsapp', [...form.notification_whatsapp, { number: '', active: true }])}
-          className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition"
+          onClick={() => {
+            const maxNums = data?.plan === 'enterprise' ? 5 : data?.plan === 'business' ? 2 : 0;
+            if (form.notification_whatsapp.length >= maxNums) return;
+            set('notification_whatsapp', [...form.notification_whatsapp, { number: '', active: true }]);
+          }}
+          disabled={(() => {
+            const maxNums = data?.plan === 'enterprise' ? 5 : data?.plan === 'business' ? 2 : 0;
+            return form.notification_whatsapp.length >= maxNums;
+          })()}
+          className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <PlusCircle size={14} /> Agregar número
         </button>
-        <p className="text-xs text-indigo-400 mt-2">Formato internacional: +57 seguido de 10 dígitos.</p>
+        <p className="text-xs text-indigo-400 mt-2">
+          Formato internacional: +57 seguido de 10 dígitos.
+          {data?.plan === 'starter' || !data?.plan
+            ? <span className="text-amber-500 font-medium"> Disponible desde el plan Business.</span>
+            : <span> Máx. {data?.plan === 'enterprise' ? 5 : 2} números en tu plan {data?.plan === 'enterprise' ? 'Enterprise' : 'Business'}.</span>
+          }
+        </p>
       </div>
 
       <div className="space-y-4">

@@ -29,7 +29,13 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     const { name, nit, tax_regime, address, phone, bancolombia_email, notification_whatsapp } = req.body || {};
     // notification_whatsapp es un array jsonb; guardar [] si viene vacío/nulo
-    const notifContacts = Array.isArray(notification_whatsapp) ? notification_whatsapp : [];
+    const rawContacts = Array.isArray(notification_whatsapp) ? notification_whatsapp : [];
+
+    // Límite de números de notificación según plan
+    const { data: planData } = await supabaseAdmin.from('companies').select('plan').eq('user_id', user.id).maybeSingle();
+    const plan = planData?.plan || 'starter';
+    const maxNums = plan === 'enterprise' ? 5 : plan === 'business' ? 2 : 0;
+    const notifContacts = rawContacts.slice(0, maxNums);
 
     const { data: existing } = await supabaseAdmin
       .from('companies')
