@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   Smartphone, Clock, AlertTriangle, Users, TimerOff, DollarSign,
   CheckCircle, Search, Landmark, Monitor, BarChart2, Download,
-  Pencil, ShieldCheck, Lock
+  Pencil, ShieldCheck, Lock, Wallet, Zap, Bell
 } from 'lucide-react';
 
 const NAV_LINKS = [
@@ -207,6 +207,59 @@ export default function Landing() {
               Crear cuenta gratis
             </Link>
             <p className="text-xs text-emerald-700 mt-3 font-medium">Sin tarjeta · Sin instalaciones · 100% WhatsApp</p>
+          </div>
+        </div>
+      </section>
+
+      {/* SECCIÓN ESTILO WOMPI - Control de pagos */}
+      <section className="overflow-hidden">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center min-h-[480px]">
+
+          {/* Columna izquierda — texto e íconos */}
+          <div className="flex-1 px-8 py-16 lg:py-24 lg:pl-16 xl:pl-24">
+            <h2 className="text-4xl xl:text-5xl font-bold text-slate-900 leading-tight mb-4">
+              Con ChatPay tienes el control<br />de tus cobros
+            </h2>
+            <p className="text-slate-500 text-lg mb-10 max-w-lg leading-relaxed">
+              Tú decides quién puede verificar pagos. Tus empleados envían el comprobante y ChatPay responde al instante si es real, falso o duplicado.
+            </p>
+            <div className="flex flex-wrap gap-8">
+              <div className="flex flex-col items-center text-center gap-2 w-24">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                  <Wallet size={22} className="text-slate-700" />
+                </div>
+                <p className="text-xs text-slate-600 font-medium leading-snug">Todos tus pagos en un solo lugar</p>
+              </div>
+              <div className="flex flex-col items-center text-center gap-2 w-24">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                  <Zap size={22} className="text-slate-700" />
+                </div>
+                <p className="text-xs text-slate-600 font-medium leading-snug">Verificación en segundos</p>
+              </div>
+              <div className="flex flex-col items-center text-center gap-2 w-24">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                  <Bell size={22} className="text-slate-700" />
+                </div>
+                <p className="text-xs text-slate-600 font-medium leading-snug">Alerta instantánea por WhatsApp</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Columna derecha — fondo verde con imagen */}
+          <div className="relative flex-1 w-full lg:w-auto self-stretch min-h-[400px] lg:min-h-0"
+            style={{ background: 'linear-gradient(135deg, #bbf7d0 0%, #86efac 50%, #4ade80 100%)' }}>
+            {/* Forma diagonal izquierda */}
+            <div className="hidden lg:block absolute inset-y-0 -left-12 w-24 overflow-hidden">
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #bbf7d0 0%, #86efac 50%, #4ade80 100%)', clipPath: 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)' }} />
+            </div>
+            {/* Imagen banner contenida */}
+            <div className="flex items-center justify-center h-full px-8 py-10">
+              <img
+                src="/banner-chatpay.png"
+                alt="ChatPay verifica pagos"
+                className="w-56 xl:w-64 rounded-3xl shadow-2xl object-cover"
+              />
+            </div>
           </div>
         </div>
       </section>
