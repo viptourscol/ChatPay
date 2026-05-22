@@ -1,30 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw, Calendar, CreditCard } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, Rocket, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw, Calendar, CreditCard, Bell } from 'lucide-react';
 
 const PLANS = {
-  starter: {
-    label: 'Starter',
+  free: {
+    label: 'Free Trial',
+    price: 0,
+    color: 'slate',
+    icon: Clock,
+    features: ['3 empleados', '50 verificaciones (14 días)', '1 alerta admin WA', 'Todas las funciones desbloqueadas']
+  },
+  basico: {
+    label: 'Básico',
     price: 49900,
     color: 'blue',
     icon: Zap,
-    features: ['1 empleado activo', '200 verificaciones / mes', '1 cuenta bancaria', 'Soporte por email']
+    features: ['2 empleados activos', '300 verificaciones / mes', '1 cuenta bancaria', 'Sin alertas admin WA', 'Soporte chat 48h']
   },
-  business: {
-    label: 'Business',
-    price: 129900,
+  estandar: {
+    label: 'Estándar',
+    price: 99900,
     color: 'emerald',
     icon: Building2,
-    features: ['20 empleados activos', '1.000 verificaciones / mes', '3 cuentas bancarias', 'Soporte por WhatsApp']
+    features: ['5 empleados activos', '800 verificaciones / mes', '2 cuentas bancarias', '1 número admin · 20 alertas WA/mes', 'Soporte chat 24h']
   },
-  enterprise: {
-    label: 'Enterprise',
-    price: 299900,
+  pro: {
+    label: 'Pro',
+    price: 199900,
+    color: 'violet',
+    icon: Rocket,
+    features: ['15 empleados activos', '2.500 verificaciones / mes', '5 cuentas bancarias', '2 números admin · 50 alertas WA/mes', 'Egresos Gmail + Nómina', 'Soporte prioritario 8h']
+  },
+  empresarial: {
+    label: 'Empresarial',
+    price: 349900,
     color: 'purple',
     icon: Crown,
-    features: ['Empleados ilimitados', 'Verificaciones ilimitadas', 'Cuentas bancarias ilimitadas', 'Soporte dedicado']
-  }
+    features: ['Empleados ilimitados', 'Verificaciones ilimitadas', 'Cuentas bancarias ilimitadas', '2 números admin · alertas ilimitadas', 'Egresos Gmail + Nómina + CRM', 'Multi-sede · Soporte WhatsApp directo']
+  },
+  // compatibilidad nombres anteriores
+  starter:    { label: 'Starter',    price: 49900,  color: 'blue',   icon: Zap,      features: [] },
+  business:   { label: 'Business',   price: 99900,  color: 'emerald',icon: Building2,features: [] },
+  enterprise: { label: 'Enterprise', price: 349900, color: 'purple', icon: Crown,    features: [] },
 };
 
 const STATUS_LABELS = {
@@ -333,8 +351,8 @@ export default function Subscription() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(PLANS).map(([key, p]) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Object.entries(PLANS).filter(([key]) => ['basico','estandar','pro','empresarial'].includes(key)).map(([key, p]) => {
             const Icon = p.icon;
             const isCurrent = key === sub?.plan;
             const discount = { 1: 0, 3: 5, 6: 10, 12: 15 }[months] ?? 0;

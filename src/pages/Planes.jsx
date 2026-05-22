@@ -1,44 +1,69 @@
 import { Link } from 'react-router-dom';
-import { Zap, Building2, Crown, Check } from 'lucide-react';
+import { Zap, Building2, Crown, Check, Rocket, Clock } from 'lucide-react';
 import Footer from '../components/Footer';
 import { useEffect, useRef, useState } from 'react';
 
 const PLANS = [
   {
-    key: 'starter',
-    label: 'Starter',
+    key: 'basico',
+    label: 'Básico',
     price: 49900,
-    tagline: 'Para negocios que empiezan',
+    tagline: 'Para negocios pequeños que arrancan',
     color: 'blue',
     Icon: Zap,
     features: [
-      '1 empleado activo',
-      '200 verificaciones / mes',
-      '1 cuenta bancaria',
+      '2 empleados activos',
+      '300 verificaciones / mes',
+      '1 cuenta bancaria (Bancolombia)',
       'Dashboard básico',
-      'Soporte por email',
+      'Exportar CSV',
+      'Soporte chat 48h',
     ],
+    notIncluded: ['Alertas WA al admin', 'Egresos Gmail', 'Cierre de nómina'],
   },
   {
-    key: 'business',
-    label: 'Business',
-    price: 129900,
-    tagline: 'Para equipos en crecimiento',
+    key: 'estandar',
+    label: 'Estándar',
+    price: 99900,
+    tagline: 'Para equipos medianos en crecimiento',
     color: 'emerald',
     Icon: Building2,
     popular: true,
     features: [
-      '20 empleados activos',
-      '1.000 verificaciones / mes',
-      '3 cuentas bancarias',
-      'Dashboard completo + reportes',
-      'Soporte por WhatsApp',
+      '5 empleados activos',
+      '800 verificaciones / mes',
+      '2 cuentas bancarias',
+      '1 número admin · 20 alertas WA/mes',
+      'Dashboard completo',
+      'Exportar CSV + Excel',
+      'Historial 90 días',
+      'Soporte chat 24h',
+    ],
+    notIncluded: ['Egresos Gmail', 'Cierre de nómina'],
+  },
+  {
+    key: 'pro',
+    label: 'Pro',
+    price: 199900,
+    tagline: 'Para empresas con alto volumen',
+    color: 'violet',
+    Icon: Rocket,
+    features: [
+      '15 empleados activos',
+      '2.500 verificaciones / mes',
+      '5 cuentas bancarias',
+      '2 números admin · 50 alertas WA/mes',
+      'Egresos automáticos desde Gmail',
+      'Cierre de nómina PDF/Excel/CSV',
+      'Dashboard por empleado',
+      'Historial 1 año',
+      'Soporte prioritario 8h',
     ],
   },
   {
-    key: 'enterprise',
-    label: 'Enterprise',
-    price: 299900,
+    key: 'empresarial',
+    label: 'Empresarial',
+    price: 349900,
     tagline: 'Para operaciones de alto volumen',
     color: 'purple',
     Icon: Crown,
@@ -46,8 +71,13 @@ const PLANS = [
       'Empleados ilimitados',
       'Verificaciones ilimitadas',
       'Cuentas bancarias ilimitadas',
-      'Dashboard + reportes avanzados',
-      'Soporte dedicado prioritario',
+      '2 números admin · alertas ilimitadas',
+      'Egresos Gmail + Cierre nómina',
+      'Integración Kommo CRM',
+      'Multi-sede / sucursales',
+      'Reportes programados por email',
+      'Historial ilimitado',
+      'Soporte WhatsApp directo + onboarding',
     ],
   },
 ];
@@ -55,9 +85,10 @@ const PLANS = [
 function fmt(n) { return `$${Number(n).toLocaleString('es-CO')}`; }
 
 const colorMap = {
-  blue:    { bg: 'bg-blue-50',    text: 'text-blue-600',    border: 'border-blue-200',   icon: 'bg-blue-100',   btn: 'bg-blue-600 hover:bg-blue-700' },
+  blue:    { bg: 'bg-blue-50',    text: 'text-blue-600',    border: 'border-blue-200',    icon: 'bg-blue-100',    btn: 'bg-blue-600 hover:bg-blue-700' },
   emerald: { bg: 'bg-emerald-600', text: 'text-white',       border: 'border-emerald-500', icon: 'bg-emerald-500', btn: 'bg-white hover:bg-emerald-50 !text-emerald-700' },
-  purple:  { bg: 'bg-purple-50',  text: 'text-purple-600',  border: 'border-purple-200', icon: 'bg-purple-100', btn: 'bg-purple-600 hover:bg-purple-700' },
+  violet:  { bg: 'bg-violet-50',  text: 'text-violet-600',  border: 'border-violet-200',  icon: 'bg-violet-100',  btn: 'bg-violet-600 hover:bg-violet-700' },
+  purple:  { bg: 'bg-purple-50',  text: 'text-purple-600',  border: 'border-purple-200',  icon: 'bg-purple-100',  btn: 'bg-purple-600 hover:bg-purple-700' },
 };
 
 export default function Planes() {
@@ -109,13 +140,13 @@ export default function Planes() {
 
       {/* Planes */}
       <section className="py-20 px-6">
-        <div ref={plansRef} className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6 items-start">
+        <div ref={plansRef} className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
           {PLANS.map((plan, i) => {
             const c = colorMap[plan.color];
             const isEmerald = plan.color === 'emerald';
             return (
               <div key={plan.key}
-                className={`rounded-3xl overflow-hidden shadow-sm border relative inview-scale card-lift ${['delay-0','delay-150','delay-300'][i]} ${plansVisible ? 'is-visible' : ''} ${
+                className={`rounded-3xl overflow-hidden shadow-sm border relative inview-scale ${'delay-0 delay-150 delay-300 delay-400'.split(' ')[i]} ${plansVisible ? 'is-visible' : ''} ${
                   isEmerald ? 'bg-emerald-600 border-emerald-500 shadow-lg shadow-emerald-200 scale-105' : 'bg-white border-slate-200'
                 }`}>
                 {plan.popular && (
@@ -123,26 +154,36 @@ export default function Planes() {
                     Más popular
                   </div>
                 )}
-                <div className="p-8">
+                <div className="p-6">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${c.icon}`}>
                     <plan.Icon size={18} className={isEmerald ? 'text-white' : c.text} />
                   </div>
                   <h3 className={`text-xl font-bold mb-1 ${isEmerald ? 'text-white' : 'text-slate-900'}`}>{plan.label}</h3>
-                  <p className={`text-sm mb-6 ${isEmerald ? 'text-emerald-200' : 'text-slate-400'}`}>{plan.tagline}</p>
-                  <div className="mb-6">
-                    <span className={`text-4xl font-black ${isEmerald ? 'text-white' : 'text-slate-900'}`}>{fmt(plan.price)}</span>
+                  <p className={`text-sm mb-4 ${isEmerald ? 'text-emerald-200' : 'text-slate-400'}`}>{plan.tagline}</p>
+                  <div className="mb-5">
+                    <span className={`text-3xl font-black ${isEmerald ? 'text-white' : 'text-slate-900'}`}>{fmt(plan.price)}</span>
                     <span className={`text-sm ml-1 ${isEmerald ? 'text-emerald-200' : 'text-slate-400'}`}>/mes</span>
                   </div>
-                  <ul className="space-y-3 mb-8">
+                  <ul className="space-y-2 mb-4">
                     {plan.features.map((f) => (
                       <li key={f} className="flex items-start gap-2">
-                        <Check size={15} className={`mt-0.5 shrink-0 ${isEmerald ? 'text-emerald-300' : 'text-emerald-500'}`} />
-                        <span className={`text-sm ${isEmerald ? 'text-emerald-100' : 'text-slate-600'}`}>{f}</span>
+                        <Check size={14} className={`mt-0.5 shrink-0 ${isEmerald ? 'text-emerald-300' : 'text-emerald-500'}`} />
+                        <span className={`text-xs ${isEmerald ? 'text-emerald-100' : 'text-slate-600'}`}>{f}</span>
                       </li>
                     ))}
                   </ul>
+                  {plan.notIncluded?.length > 0 && (
+                    <ul className="space-y-1 mb-5 border-t border-slate-100 pt-3">
+                      {plan.notIncluded.map((f) => (
+                        <li key={f} className="flex items-start gap-2 opacity-50">
+                          <span className="text-slate-400 mt-0.5 shrink-0 text-xs">✕</span>
+                          <span className="text-xs text-slate-400">{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <Link to="/registro"
-                    className={`block text-center font-bold text-sm rounded-full py-3 transition-colors ${c.btn} ${isEmerald ? '' : 'text-white'}`}>
+                    className={`block text-center font-bold text-sm rounded-full py-3 transition-colors mt-4 ${c.btn} ${isEmerald ? '' : 'text-white'}`}>
                     Empezar con {plan.label} →
                   </Link>
                 </div>
