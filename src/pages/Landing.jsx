@@ -150,6 +150,67 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* BANNER MÓVIL ESTILO APP */}
+      <section className="py-20 px-6 bg-gradient-to-b from-emerald-50 to-emerald-100">
+        <div className="max-w-sm mx-auto">
+          {/* Tarjeta mock de app */}
+          <div className="bg-white rounded-2xl shadow-lg px-5 py-4 mb-8">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Smartphone size={14} className="text-white" />
+                  </div>
+                  <span className="font-semibold text-sm text-slate-800">ChatPay Bot</span>
+                </div>
+                <p className="text-xs text-slate-400 ml-9">Verificación instantánea de pagos</p>
+              </div>
+              <div className="text-right">
+                <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1 justify-end">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Activo
+                </span>
+                <p className="text-xs text-slate-400 mt-0.5">Configurar &rsaquo;</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold text-slate-900 tracking-tight">✓ Pago verificado</p>
+                <p className="text-xs text-slate-400 mt-0.5">Hace 3 segundos · Bancolombia</p>
+              </div>
+              <button className="bg-emerald-600 text-white text-xs font-semibold rounded-xl px-4 py-2 shadow-sm">
+                Ver detalle
+              </button>
+            </div>
+          </div>
+
+          {/* Texto principal */}
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-serif leading-snug text-slate-800 mb-1">
+              Ahora con ChatPay<br />
+              tus empleados verifican
+            </h2>
+            <h2 className="text-3xl font-bold leading-snug text-slate-900">
+              pagos en segundos<br />por WhatsApp
+            </h2>
+          </div>
+
+          {/* Caja descriptiva */}
+          <div className="bg-white/70 border border-emerald-200 rounded-2xl px-5 py-4 text-center mb-8">
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Tú decides qué empleados pueden verificar. Ellos envían el comprobante y ChatPay responde al instante si es <strong>real, falso o duplicado</strong>.
+            </p>
+          </div>
+
+          {/* CTA */}
+          <div className="text-center">
+            <Link to="/registro" className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base rounded-2xl px-8 py-3 shadow-md transition">
+              Crear cuenta gratis
+            </Link>
+            <p className="text-xs text-emerald-700 mt-3 font-medium">Sin tarjeta · Sin instalaciones · 100% WhatsApp</p>
+          </div>
+        </div>
+      </section>
+
       {/* CTA FINAL */}
       <section className="py-20 px-6 bg-slate-900 text-white text-center">
         <h2 className="text-4xl font-serif mb-3">Empieza a verificar pagos hoy</h2>

@@ -13,7 +13,10 @@ import 'dotenv/config';
 import { google } from 'googleapis';
 import readline from 'node:readline';
 
-const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.modify',  // necesario para crear etiquetas y etiquetar mensajes
+];
 
 const oauth2 = new google.auth.OAuth2(
   process.env.GMAIL_CLIENT_ID,
