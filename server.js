@@ -20,7 +20,7 @@ import gmailHandler from './api/gmail.js';
 import adminCompaniesHandler from './api/admin/companies.js';
 import bankAccountsHandler from './api/bank-accounts/index.js';
 import subscriptionHandler from './api/subscription/index.js';
-import nominaReportHandler from './api/reports/nomina.js';
+import nominaReportHandler from './api/reports/index.js';
 
 const app = express();
 app.use(cors());

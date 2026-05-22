@@ -162,7 +162,7 @@ function NominaReport() {
   async function generate() {
     setLoading(true); setError(null); setResult(null);
     try {
-      const data = await api('/api/reports/nomina', { query: { from: nomFrom, to: nomTo } });
+      const data = await api('/api/reports', { query: { from: nomFrom, to: nomTo } });
       setResult(data);
     } catch (e) {
       setError(e.message);
