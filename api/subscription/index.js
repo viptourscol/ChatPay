@@ -171,18 +171,7 @@ export default async function handler(req, res) {
       const vExpiresAt = new Date();
       vExpiresAt.setMonth(vExpiresAt.getMonth() + vMonths);
 
-      // Idempotencia: si ya procesamos esta transacción, devolver éxito sin duplicar
-      const { data: existingPayment } = await supabaseAdmin
-        .from('subscription_payments')
-        .select('id, plan')
-        .eq('wompi_tx_id', transactionId)
-        .maybeSingle();
-
-      if (existingPayment) {
-        console.log('[verify] Transacción ya procesada:', transactionId);
-        return res.json({ activated: true, plan: existingPayment.plan, already_processed: true });
-      }
-
+      // Siempre actualizamos la empresa (idempotente — mismos valores si se llama dos veces)
       const { error: vDbErr } = await supabaseAdmin.from('companies').update({
         plan:                    vPlan,
         subscription_status:     'active',
@@ -196,18 +185,26 @@ export default async function handler(req, res) {
 
       if (vDbErr) return res.status(500).json({ error: vDbErr.message });
 
-      // Registrar el pago en el historial
-      await supabaseAdmin.from('subscription_payments').insert({
-        company_id:  vCompany.id,
-        wompi_tx_id: transactionId,
-        plan:        vPlan,
-        months:      vMonths,
-        amount_cop:  wtx.amount_in_cents ? Math.round(wtx.amount_in_cents / 100) : 0,
-        status:      'approved',
-      }).select().maybeSingle(); // ignorar error si la tabla no existe aún
+      // Idempotencia de pago: solo insertar si no existe ya
+      const { data: existingPayment } = await supabaseAdmin
+        .from('subscription_payments')
+        .select('id')
+        .eq('wompi_tx_id', transactionId)
+        .maybeSingle();
 
-      console.log(`[verify] Suscripción activada: empresa=${vCompany.id} plan=${vPlan} meses=${vMonths}`);
-      return res.json({ activated: true, plan: vPlan, months: vMonths });
+      if (!existingPayment) {
+        await supabaseAdmin.from('subscription_payments').insert({
+          company_id:  vCompany.id,
+          wompi_tx_id: transactionId,
+          plan:        vPlan,
+          months:      vMonths,
+          amount_cop:  wtx.amount_in_cents ? Math.round(wtx.amount_in_cents / 100) : 0,
+          status:      'approved',
+        });
+      }
+
+      console.log(`[verify] Suscripción activada: empresa=${vCompany.id} plan=${vPlan} meses=${vMonths} vence=${vExpiresAt.toISOString()}`);
+      return res.json({ activated: true, plan: vPlan, months: vMonths, expiresAt: vExpiresAt.toISOString() });
     }
 
     // --- Acción: crear link de pago Wompi ---
