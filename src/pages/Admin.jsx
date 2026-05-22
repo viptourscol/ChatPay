@@ -52,9 +52,11 @@ function PlanBadge({ plan }) {
 }
 
 /* ─── StatusBadge ────────────────────────────────────────── */
-function StatusBadge({ status, trialEndsAt }) {
+function StatusBadge({ status, trialEndsAt, subExpiresAt }) {
   const clr   = statusColorMap[status] ?? statusColorMap.cancelled;
-  const days  = status === 'trial' ? daysLeft(trialEndsAt) : null;
+  const days  = status === 'trial'  ? daysLeft(trialEndsAt)
+               : status === 'active' ? daysLeft(subExpiresAt)
+               : null;
   const label = STATUS_OPTS.find(s => s.value === status)?.label || status;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${clr.bg} ${clr.text}`}>
@@ -96,6 +98,7 @@ function EditModal({ company, onClose, onSave, isPending }) {
     plan:                    company.plan || 'starter',
     subscription_status:     company.subscription_status || 'trial',
     trial_ends_at:           company.trial_ends_at ? company.trial_ends_at.slice(0, 10) : '',
+    subscription_expires_at: company.subscription_expires_at ? company.subscription_expires_at.slice(0, 10) : '',
     max_employees:           company.max_employees ?? 1,
     max_verifications_month: company.max_verifications_month ?? 200,
     max_bank_accounts:       company.max_bank_accounts ?? 1,
@@ -118,12 +121,20 @@ function EditModal({ company, onClose, onSave, isPending }) {
     setForm(f => ({ ...f, trial_ends_at: base.toISOString().slice(0, 10), subscription_status: 'trial' }));
   }
 
+  function extendSubscription(months) {
+    const base = form.subscription_expires_at ? new Date(form.subscription_expires_at) : new Date();
+    if (base < new Date()) base.setTime(Date.now());
+    base.setMonth(base.getMonth() + months);
+    setForm(f => ({ ...f, subscription_expires_at: base.toISOString().slice(0, 10), subscription_status: 'active' }));
+  }
+
   function handleSave() {
     const is_active = form.subscription_status === 'active' || form.subscription_status === 'trial';
     onSave({
       id: company.id,
       ...form,
-      trial_ends_at: form.trial_ends_at ? new Date(form.trial_ends_at).toISOString() : null,
+      trial_ends_at:           form.trial_ends_at           ? new Date(form.trial_ends_at).toISOString()           : null,
+      subscription_expires_at: form.subscription_expires_at ? new Date(form.subscription_expires_at).toISOString() : null,
       is_active,
     });
   }
@@ -212,6 +223,27 @@ function EditModal({ company, onClose, onSave, isPending }) {
             </div>
           </div>
 
+          {/* Vencimiento suscripción activa */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">Vencimiento suscripción activa</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className="input flex-1 text-sm"
+                value={form.subscription_expires_at}
+                onChange={e => setForm(f => ({ ...f, subscription_expires_at: e.target.value }))}
+              />
+              <button onClick={() => extendSubscription(1)}  className="btn btn-ghost text-xs px-2 py-1 text-emerald-600 border border-emerald-200">+1m</button>
+              <button onClick={() => extendSubscription(3)}  className="btn btn-ghost text-xs px-2 py-1 text-emerald-600 border border-emerald-200">+3m</button>
+              <button onClick={() => extendSubscription(12)} className="btn btn-ghost text-xs px-2 py-1 text-purple-600 border border-purple-200">+1a</button>
+            </div>
+            {form.subscription_expires_at && (
+              <p className="text-xs text-slate-400 mt-1">
+                {(() => { const d = Math.ceil((new Date(form.subscription_expires_at) - new Date()) / 86400000); return d > 0 ? `${d} días restantes` : '⚠ Ya vencida'; })()}
+              </p>
+            )}
+          </div>
+
           {/* Límites */}
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">Límites personalizados</label>
@@ -250,8 +282,11 @@ function EditModal({ company, onClose, onSave, isPending }) {
 /* ─── CompanyRow ─────────────────────────────────────────── */
 function CompanyRow({ c, onEdit }) {
   const days      = daysLeft(c.trial_ends_at);
+  const subDays   = daysLeft(c.subscription_expires_at);
   const isWarning = c.subscription_status === 'trial' && days !== null && days <= 3 && days > 0;
   const isExpired = c.subscription_status === 'trial' && days !== null && days <= 0;
+  const subExpiring = c.subscription_status === 'active' && subDays !== null && subDays <= 7 && subDays > 0;
+  const subExpired  = c.subscription_status === 'active' && subDays !== null && subDays <= 0;
 
   return (
     <tr className={`group hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-0 ${!c.is_active ? 'opacity-50' : ''}`}>
@@ -271,11 +306,19 @@ function CompanyRow({ c, onEdit }) {
       </td>
       <td className="px-5 py-4">
         <div className="flex flex-col gap-0.5">
-          <StatusBadge status={c.subscription_status} trialEndsAt={c.trial_ends_at} />
+          <StatusBadge status={c.subscription_status} trialEndsAt={c.trial_ends_at} subExpiresAt={c.subscription_expires_at} />
           {c.subscription_status === 'trial' && c.trial_ends_at && (
             <span className={`text-xs ${isExpired ? 'text-red-500 font-semibold' : isWarning ? 'text-amber-500' : 'text-slate-400'}`}>
               {isExpired ? '⚠ Trial vencido' : `Vence ${fmtDate(c.trial_ends_at)}`}
             </span>
+          )}
+          {c.subscription_status === 'active' && c.subscription_expires_at && (
+            <span className={`text-xs ${subExpired ? 'text-red-500 font-semibold' : subExpiring ? 'text-amber-500 font-medium' : 'text-slate-400'}`}>
+              {subExpired ? '⚠ Suscripción vencida' : `Vence ${fmtDate(c.subscription_expires_at)}`}
+            </span>
+          )}
+          {c.subscription_status === 'active' && !c.subscription_expires_at && (
+            <span className="text-xs text-slate-300">Sin fecha registrada</span>
           )}
         </div>
       </td>
@@ -339,14 +382,21 @@ function CompanyCard({ c, onEdit }) {
       </div>
       <div className="flex flex-wrap gap-2 mb-2">
         <PlanBadge plan={c.plan} />
-        <StatusBadge status={c.subscription_status} trialEndsAt={c.trial_ends_at} />
+        <StatusBadge status={c.subscription_status} trialEndsAt={c.trial_ends_at} subExpiresAt={c.subscription_expires_at} />
       </div>
       <div className="flex items-center justify-between text-xs text-slate-500">
         <div className="flex gap-3">
           <span className="flex items-center gap-1"><Users size={10} />{c.max_employees >= 999999 ? '∞' : c.max_employees} emp.</span>
           <span className="flex items-center gap-1"><ShieldCheck size={10} />{c.max_verifications_month >= 999999 ? '∞' : c.max_verifications_month}/mes</span>
         </div>
-        <span className="font-semibold text-slate-700">{fmtPrice(PLAN_OPTS.find(p => p.value === c.plan)?.price ?? 49900)}<span className="font-normal text-slate-400">/mes</span></span>
+        <div className="text-right">
+          <div className="font-semibold text-slate-700">{fmtPrice(PLAN_OPTS.find(p => p.value === c.plan)?.price ?? 49900)}<span className="font-normal text-slate-400">/mes</span></div>
+          {c.subscription_status === 'active' && c.subscription_expires_at && (
+            <div className={`text-xs ${daysLeft(c.subscription_expires_at) <= 7 ? 'text-amber-500' : 'text-slate-400'}`}>
+              Vence {fmtDate(c.subscription_expires_at)}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

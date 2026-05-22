@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const { data, error } = await supabaseAdmin
       .from('companies')
       .select(`
-        id, name, email_alias, plan, subscription_status, trial_ends_at,
+        id, name, email_alias, plan, subscription_status, trial_ends_at, subscription_expires_at,
         max_employees, max_verifications_month, max_bank_accounts, is_active, created_at, user_id
       `)
       .order('created_at', { ascending: false });
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
 
   // PATCH /api/admin/companies — actualizar plan / is_active de una empresa
   if (req.method === 'PATCH') {
-    const { id, plan, max_employees, max_verifications_month, max_bank_accounts, subscription_status, trial_ends_at, is_active } = req.body || {};
+    const { id, plan, max_employees, max_verifications_month, max_bank_accounts, subscription_status, trial_ends_at, subscription_expires_at, is_active } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id requerido' });
     const allowed = {};
     if (plan !== undefined) allowed.plan = plan;
@@ -44,6 +44,7 @@ export default async function handler(req, res) {
     if (max_bank_accounts !== undefined) allowed.max_bank_accounts = max_bank_accounts;
     if (subscription_status !== undefined) allowed.subscription_status = subscription_status;
     if (trial_ends_at !== undefined) allowed.trial_ends_at = trial_ends_at;
+    if (subscription_expires_at !== undefined) allowed.subscription_expires_at = subscription_expires_at;
     if (is_active !== undefined) allowed.is_active = is_active;
     const { data, error } = await supabaseAdmin
       .from('companies')
