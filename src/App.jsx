@@ -4,6 +4,9 @@ import { supabase } from './lib/supabase.js';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import ComoActivar from './pages/ComoActivar.jsx';
+import Planes from './pages/Planes.jsx';
+import BancosCompatibles from './pages/BancosCompatibles.jsx';
 import Layout from './components/Layout.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Verifications from './pages/Verifications.jsx';
@@ -36,6 +39,9 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
+        <Route path="/como-activar" element={<ComoActivar />} />
+        <Route path="/planes" element={<Planes />} />
+        <Route path="/bancos-compatibles" element={<BancosCompatibles />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );

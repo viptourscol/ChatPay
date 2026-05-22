@@ -79,7 +79,7 @@ export default function Layout() {
       <aside
         className={`${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed md:relative md:translate-x-0 z-30 md:z-auto
+        } fixed md:relative md:translate-x-0 z-50 md:z-auto
           w-64 h-full md:h-auto shrink-0 bg-white border-r border-slate-200
           flex flex-col transition-transform duration-300 animate-fade-in`}
       >
@@ -202,7 +202,15 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="bg-white border-b border-slate-200 h-12 flex items-center px-4 gap-3 shrink-0">
+        <header className="
+          md:relative md:bg-white md:border-b md:border-slate-200 md:backdrop-filter-none md:shadow-none
+          fixed top-0 left-0 right-0 z-40
+          md:static
+          h-12 flex items-center px-4 gap-3 shrink-0
+          bg-white/60 backdrop-blur-xl backdrop-saturate-150
+          border-b border-white/40
+          shadow-sm shadow-black/5
+        ">
           <button
             onClick={() => setSidebarOpen((v) => !v)}
             className="p-1.5 rounded hover:bg-slate-100 text-slate-500 transition"
@@ -218,7 +226,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 overflow-auto">
+        <main className="flex-1 p-4 pt-16 md:pt-4 md:p-8 overflow-auto">
           <Outlet />
         </main>
       </div>

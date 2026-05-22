@@ -2,6 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Scroll nativo móvil ──────────────────────────────────
+   1. smooth scroll para anclas
+   2. overscroll-behavior: evita que el bounce se propague
+      y previene el gesto "atrás" accidental en Android
+   3. Oculta scrollbar en webkit/firefox sin perder funcionalidad
+   4. touch-action: pan-y acelera el reconocimiento del scroll
+      y elimina el delay de 300ms en taps
+   5. will-change en el body mejora la composición del scroll
+      en GPU (evita repaints durante animaciones)
+──────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+  /* Evita el desplazamiento horizontal accidental en móvil */
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+  /* Contiene el rubber-band de iOS dentro de la página,
+     evita que secciones internas hagan doble bounce */
+  overscroll-behavior-y: contain;
+  /* Pista al browser: el scroll es vertical → omite el
+     delay de 300ms en tap y mejora frame rate */
+  touch-action: pan-y;
+  /* Oculta scrollbar en Firefox */
+  scrollbar-width: none;
+}
+
+/* Oculta scrollbar en Chrome/Safari/Edge sin deshabilitar scroll */
+body::-webkit-scrollbar { display: none; }
+
+/* Elementos que hacen scroll interno (modales, listas) */
+.scroll-native {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* momentum scroll en iOS */
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+.scroll-native::-webkit-scrollbar { display: none; }
+
 html, body, #root { height: 100%; }
 body {
   @apply bg-slate-50 text-slate-900 font-sans antialiased;
@@ -36,18 +76,129 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes lineGrow {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+@keyframes scaleFadeUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes pulseCta {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 24px 0 rgba(5,150,105,0.25); }
+  50%       { transform: scale(1.035); box-shadow: 0 8px 32px 0 rgba(5,150,105,0.40); }
+}
+@keyframes slideLeft {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
 
-.animate-fade-up   { animation: fadeUp 0.45s ease both; }
-.animate-fade-in   { animation: fadeIn 0.35s ease both; }
-.animate-bar-grow  { animation: barGrow 0.6s cubic-bezier(.34,1.56,.64,1) both; }
-.animate-count-up  { animation: countUp 0.4s ease both; }
+.animate-slide-left  { animation: slideLeft  0.55s cubic-bezier(.4,0,.2,1) both; }
+.animate-slide-right { animation: slideRight 0.55s cubic-bezier(.4,0,.2,1) both; }
+.animate-zoom-in     { animation: zoomIn     0.5s  cubic-bezier(.4,0,.2,1) both; }
+.animate-shimmer     { background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
+                       background-size: 200% auto; animation: shimmer 2.4s linear infinite; }
+
+.animate-fade-up    { animation: fadeUp 0.45s ease both; }
+.animate-fade-in    { animation: fadeIn 0.35s ease both; }
+.animate-bar-grow   { animation: barGrow 0.6s cubic-bezier(.34,1.56,.64,1) both; }
+.animate-count-up   { animation: countUp 0.4s ease both; }
 .animate-pulse-soft { animation: pulse-soft 2s ease infinite; }
+.animate-float      { animation: float 4s ease-in-out infinite; }
+.animate-line-grow  { animation: lineGrow 0.8s cubic-bezier(.4,0,.2,1) both; }
+.animate-scale-fade-up { animation: scaleFadeUp 0.55s cubic-bezier(.4,0,.2,1) both; }
+.animate-pulse-cta  { animation: pulseCta 2.4s ease-in-out infinite; }
+
+/* InView: elementos ocultos hasta ser observados */
+.inview-hidden {
+  opacity: 0;
+  transform: translateY(24px);
+  will-change: transform, opacity;
+  transition: opacity 0.6s cubic-bezier(.4,0,.2,1), transform 0.6s cubic-bezier(.4,0,.2,1);
+}
+.inview-hidden.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  will-change: auto;
+}
+.inview-scale {
+  opacity: 0;
+  transform: translateY(24px) scale(0.94);
+  will-change: transform, opacity;
+  transition: opacity 0.55s cubic-bezier(.4,0,.2,1), transform 0.55s cubic-bezier(.4,0,.2,1);
+}
+.inview-scale.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  will-change: auto;
+}
+.inview-line {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.9s cubic-bezier(.4,0,.2,1);
+}
+.inview-line.is-visible {
+  transform: scaleX(1);
+}
+
+/* Navbar fijo: fuerza capa GPU propia para evitar repaint
+   durante el scroll (crítico en iOS con backdrop-blur) */
+header[class*="fixed"],
+header[class*="backdrop"] {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* ── Hover Cards ────────────────────────────────────────── */
+/* Lift verde (tarjetas blancas sobre fondo claro) */
+.card-lift {
+  transition: transform 0.28s cubic-bezier(.34,1.4,.64,1), box-shadow 0.28s ease, border-color 0.28s ease;
+}
+.card-lift:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 20px 48px -8px rgba(5,150,105,0.18), 0 4px 16px -4px rgba(5,150,105,0.12);
+  border-color: rgba(16,185,129,0.45);
+}
+/* Lift blanco (tarjetas sobre fondo verde/oscuro) */
+.card-lift-white {
+  transition: transform 0.28s cubic-bezier(.34,1.4,.64,1), box-shadow 0.28s ease;
+}
+.card-lift-white:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 20px 48px -8px rgba(0,0,0,0.25), 0 4px 16px -4px rgba(0,0,0,0.15);
+}
+/* Ícono que escala al hover del grupo */
+.group:hover .icon-pop {
+  transform: scale(1.15) rotate(-4deg);
+  transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+.icon-pop {
+  transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+}
 
 /* Stagger delays */
-.delay-0   { animation-delay: 0ms; }
-.delay-75  { animation-delay: 75ms; }
-.delay-150 { animation-delay: 150ms; }
-.delay-225 { animation-delay: 225ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
-.delay-500 { animation-delay: 500ms; }
+.delay-0   { animation-delay: 0ms;   transition-delay: 0ms; }
+.delay-75  { animation-delay: 75ms;  transition-delay: 75ms; }
+.delay-150 { animation-delay: 150ms; transition-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; transition-delay: 200ms; }
+.delay-225 { animation-delay: 225ms; transition-delay: 225ms; }
+.delay-300 { animation-delay: 300ms; transition-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; transition-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; transition-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; transition-delay: 600ms; }
