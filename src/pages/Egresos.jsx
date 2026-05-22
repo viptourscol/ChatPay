@@ -195,7 +195,10 @@ export default function Egresos() {
           <h1 className="font-serif text-3xl">Egresos</h1>
           <p className="text-slate-500 text-sm">Gastos y pagos realizados por tu empresa.</p>
         </div>
-        <button onClick={() => setModal('new')} className="btn btn-primary">+ Registrar egreso</button>
+        <button onClick={() => setModal('new')} className="btn btn-primary whitespace-nowrap text-sm sm:text-base">
+          <span className="sm:hidden">+ Nuevo</span>
+          <span className="hidden sm:inline">+ Registrar egreso</span>
+        </button>
       </header>
 
       {/* Stats */}

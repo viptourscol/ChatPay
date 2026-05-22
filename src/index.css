@@ -199,6 +199,8 @@ header[class*="backdrop"] {
 .delay-200 { animation-delay: 200ms; transition-delay: 200ms; }
 .delay-225 { animation-delay: 225ms; transition-delay: 225ms; }
 .delay-300 { animation-delay: 300ms; transition-delay: 300ms; }
+.delay-375 { animation-delay: 375ms; transition-delay: 375ms; }
 .delay-400 { animation-delay: 400ms; transition-delay: 400ms; }
+.delay-450 { animation-delay: 450ms; transition-delay: 450ms; }
 .delay-500 { animation-delay: 500ms; transition-delay: 500ms; }
 .delay-600 { animation-delay: 600ms; transition-delay: 600ms; }
