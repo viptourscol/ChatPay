@@ -245,21 +245,13 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Columna derecha — fondo verde con imagen */}
-          <div className="relative flex-1 w-full lg:w-auto self-stretch min-h-[400px] lg:min-h-0"
-            style={{ background: 'linear-gradient(135deg, #bbf7d0 0%, #86efac 50%, #4ade80 100%)' }}>
-            {/* Forma diagonal izquierda */}
-            <div className="hidden lg:block absolute inset-y-0 -left-12 w-24 overflow-hidden">
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #bbf7d0 0%, #86efac 50%, #4ade80 100%)', clipPath: 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)' }} />
-            </div>
-            {/* Imagen banner contenida */}
-            <div className="flex items-center justify-center h-full px-8 py-10">
-              <img
-                src="/banner-chatpay.png"
-                alt="ChatPay verifica pagos"
-                className="w-56 xl:w-64 rounded-3xl shadow-2xl object-cover"
-              />
-            </div>
+          {/* Columna derecha — imagen flotante tarjetas */}
+          <div className="flex-1 flex items-center justify-center px-6 py-10 lg:py-0">
+            <img
+              src="/banner-cards.png"
+              alt="ChatPay verifica pagos automáticamente"
+              className="w-full max-w-lg xl:max-w-xl object-contain drop-shadow-xl"
+            />
           </div>
         </div>
       </section>
