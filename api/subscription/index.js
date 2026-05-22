@@ -171,6 +171,18 @@ export default async function handler(req, res) {
       const vExpiresAt = new Date();
       vExpiresAt.setMonth(vExpiresAt.getMonth() + vMonths);
 
+      // Idempotencia: si ya procesamos esta transacción, devolver éxito sin duplicar
+      const { data: existingPayment } = await supabaseAdmin
+        .from('subscription_payments')
+        .select('id, plan')
+        .eq('wompi_tx_id', transactionId)
+        .maybeSingle();
+
+      if (existingPayment) {
+        console.log('[verify] Transacción ya procesada:', transactionId);
+        return res.json({ activated: true, plan: existingPayment.plan, already_processed: true });
+      }
+
       const { error: vDbErr } = await supabaseAdmin.from('companies').update({
         plan:                    vPlan,
         subscription_status:     'active',
