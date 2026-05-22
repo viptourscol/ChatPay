@@ -13,6 +13,7 @@ import { sendMessage, downloadMedia, sendPaymentNotification } from '../../lib/w
 import { extractComprobanteData }   from '../../lib/groq.js';
 import { matchTransaction, buildResponseMessage } from '../../lib/matcher.js';
 import { checkVerificationLimit }   from '../../lib/subscription.js';
+import kommoHandler                 from '../../lib/kommo-webhook.js';
 
 export const config = { api: { bodyParser: true } };
 
@@ -356,5 +357,6 @@ export default function handler(req, res) {
   const provider = req.query.provider;
   if (provider === 'wompi')    return handleWompi(req, res);
   if (provider === 'whatsapp') return handleWhatsApp(req, res);
-  return res.status(400).json({ error: 'provider requerido: ?provider=whatsapp|wompi' });
+  if (provider === 'kommo')    return kommoHandler(req, res);
+  return res.status(400).json({ error: 'provider requerido: ?provider=whatsapp|wompi|kommo' });
 }
