@@ -84,7 +84,7 @@ export default function Landing() {
             <img
               src="/hero-banner.png"
               alt="ChatPay verifica pagos por WhatsApp"
-              className="w-full max-w-md lg:max-w-lg xl:max-w-xl object-contain drop-shadow-xl"
+              className="w-full max-w-md lg:max-w-lg xl:max-w-xl object-contain drop-shadow-xl rounded-3xl"
             />
           </div>
         </div>
