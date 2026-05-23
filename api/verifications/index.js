@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const companyId = company.id;
 
   if (req.method === 'GET') {
-    const { from, to, status, employee_id, limit = 10000, page = 1, pageSize = 25 } = req.query;
+    const { from, to, status, employee_id, location_id, limit = 10000, page = 1, pageSize = 25 } = req.query;
     const ps = Number(pageSize);
     const pg = Math.max(1, Number(page));
     const usePaging = Number(limit) <= 100; // exportadores usan limit alto → sin paginar
@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       q = q.eq('company_id', companyId);
       if (status) q = q.eq('status', status);
       if (employee_id) q = q.eq('employee_id', employee_id);
+      if (location_id) q = q.eq('location_id', location_id);
       if (from) q = q.gte('created_at', from);
       if (to) q = q.lte('created_at', to);
       return q;

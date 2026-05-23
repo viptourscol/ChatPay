@@ -165,13 +165,20 @@ export default function Employees() {
     queryKey: ['employees'],
     queryFn: () => api('/api/employees'),
   });
-  const [form, setForm] = useState({ name: '', whatsapp_number: '' });
+  const [form, setForm] = useState({ name: '', whatsapp_number: '', location_id: '' });
   const [search, setSearch] = useState('');
+
+  const { data: locData } = useQuery({
+    queryKey: ['locations'],
+    queryFn: () => api('/api/locations'),
+  });
+  const locations = locData?.items?.filter(l => l.is_active) || [];
+  const multiSede = locations.length > 1;
 
   const create = useMutation({
     mutationFn: (body) => api('/api/employees', { method: 'POST', body }),
     onSuccess: () => {
-      setForm({ name: '', whatsapp_number: '' });
+      setForm({ name: '', whatsapp_number: '', location_id: '' });
       qc.invalidateQueries({ queryKey: ['employees'] });
     },
   });
@@ -249,6 +256,21 @@ export default function Employees() {
                 <input className="input pl-8" placeholder="+573001234567" required value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} />
               </div>
             </div>
+            {multiSede && (
+              <div>
+                <label className="label">Sede</label>
+                <select
+                  className="input"
+                  value={form.location_id}
+                  onChange={e => setForm({ ...form, location_id: e.target.value })}
+                >
+                  <option value="">Selecciona una sede</option>
+                  {locations.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}{l.city ? ` — ${l.city}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {create.error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{String(create.error.message)}</div>}
             <button className="btn btn-primary w-full" disabled={create.isPending}>{create.isPending ? 'Guardando...' : 'Agregar empleado'}</button>
           </form>

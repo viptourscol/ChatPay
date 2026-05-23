@@ -204,9 +204,18 @@ function QuickActions({ navigate }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [locationId, setLocationId] = useState('');
+
+  const { data: locData } = useQuery({
+    queryKey: ['locations'],
+    queryFn: () => api('/api/locations'),
+  });
+  const locations = locData?.items?.filter(l => l.is_active) || [];
+  const multiSede = locations.length > 1;
+
   const { data, isLoading } = useQuery({
-    queryKey: ['stats'],
-    queryFn: () => api('/api/stats'),
+    queryKey: ['stats', locationId],
+    queryFn: () => api('/api/stats', { query: locationId ? { location_id: locationId } : {} }),
     refetchInterval: 60_000,
   });
 
@@ -238,6 +247,20 @@ export default function Dashboard() {
             <span className="text-xs font-semibold text-emerald-950">Sistema activo</span>
           </div>
         </div>
+        {multiSede && (
+          <div className="relative z-10 px-6 pb-4">
+            <select
+              value={locationId}
+              onChange={e => setLocationId(e.target.value)}
+              className="bg-white/70 backdrop-blur-sm border border-white/60 rounded-xl px-3 py-1.5 text-sm font-medium text-emerald-900 focus:outline-none focus:ring-2 focus:ring-white/50"
+            >
+              <option value="">Todas las sedes</option>
+              {locations.map(l => (
+                <option key={l.id} value={l.id}>{l.name}{l.city ? ` — ${l.city}` : ''}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
       {isLoading ? (

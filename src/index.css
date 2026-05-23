@@ -26,12 +26,15 @@ body {
   /* Pista al browser: el scroll es vertical → omite el
      delay de 300ms en tap y mejora frame rate */
   touch-action: pan-y;
-  /* Oculta scrollbar en Firefox */
-  scrollbar-width: none;
+  /* Scrollbar visible en Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
-/* Oculta scrollbar en Chrome/Safari/Edge sin deshabilitar scroll */
-body::-webkit-scrollbar { display: none; }
+/* Scrollbar visible en Chrome/Safari/Edge */
+body::-webkit-scrollbar { width: 6px; }
+body::-webkit-scrollbar-track { background: transparent; }
+body::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
 
 /* Elementos que hacen scroll interno (modales, listas) */
 .scroll-native {

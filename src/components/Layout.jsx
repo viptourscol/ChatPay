@@ -18,6 +18,7 @@ const MODULES = [
   { to: '/ingresos',      label: 'Ingresos',        Icon: TrendingUp },
   { to: '/egresos',       label: 'Egresos',         Icon: TrendingDown,  feature: 'egresos_gmail' },
   { to: '/empleados',     label: 'Empleados',       Icon: Users },
+  { to: '/sedes',         label: 'Sedes',            Icon: Building2, feature: 'multi_sede' },
   { to: '/reportes',      label: 'Reportes',        Icon: BarChart2 },
 ];
 

@@ -256,11 +256,18 @@ function DetailModal({ v, onClose }) {
 }
 
 export default function Verifications() {
-  const [filters, setFilters]   = useState({ status: '', from: todayFull, to: todayEnd });
+  const [filters, setFilters]   = useState({ status: '', from: todayFull, to: todayEnd, location_id: '' });
   const [applied, setApplied]   = useState({ from: todayFull, to: todayEnd });
   const [page, setPage]         = useState(1);
   const [selected, setSelected] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+
+  const { data: locData } = useQuery({
+    queryKey: ['locations'],
+    queryFn: () => api('/api/locations'),
+  });
+  const locations = locData?.items?.filter(l => l.is_active) || [];
+  const multiSede = locations.length > 1;
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['verifications', applied, page],
@@ -317,6 +324,18 @@ export default function Verifications() {
                 <option value="error">Errores</option>
               </select>
             </div>
+            {multiSede && (
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Sede</label>
+                <select className="input w-full text-sm" value={filters.location_id}
+                  onChange={e => setFilters({ ...filters, location_id: e.target.value })}>
+                  <option value="">Todas las sedes</option>
+                  {locations.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}{l.city ? ` — ${l.city}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="text-xs text-slate-500 mb-1 block">Desde</label>
               <input type="datetime-local" className="input w-full text-sm"

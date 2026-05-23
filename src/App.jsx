@@ -17,6 +17,7 @@ import Egresos from './pages/Egresos.jsx';
 import Settings from './pages/Settings.jsx';
 import Admin from './pages/Admin.jsx';
 import Subscription from './pages/Subscription.jsx';
+import Locations from './pages/Locations.jsx';
 
 const SUPER_ADMIN_EMAIL = 'pagosviptourscol@gmail.com';
 
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/reportes" element={<Reports />} />
         <Route path="/ingresos" element={<Ingresos />} />
         <Route path="/egresos" element={<Egresos />} />
+        <Route path="/sedes" element={<Locations />} />
         <Route path="/configuracion" element={<Settings />} />
         <Route path="/suscripcion" element={<Subscription />} />
         <Route

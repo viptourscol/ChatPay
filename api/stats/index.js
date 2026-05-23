@@ -9,46 +9,50 @@ export default async function handler(req, res) {
   const company = await requireCompany(user.id, res);
   if (!company) return;
   const companyId = company.id;
+  const { location_id } = req.query;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
+  // Helper para aplicar filtro de sede opcional
+  const withLocation = (q) => location_id ? q.eq('location_id', location_id) : q;
+
   const [todayQ, weekQ, fakeQ, empQ, recentQ, recentVerifQ, pendingQ, amountQ] = await Promise.all([
-    supabaseAdmin
+    withLocation(supabaseAdmin
       .from('verifications')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
-      .gte('created_at', today.toISOString()),
-    supabaseAdmin
+      .gte('created_at', today.toISOString())),
+    withLocation(supabaseAdmin
       .from('verifications')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
-      .gte('created_at', weekAgo.toISOString()),
-    supabaseAdmin
+      .gte('created_at', weekAgo.toISOString())),
+    withLocation(supabaseAdmin
       .from('verifications')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .in('status', ['fake', 'duplicate'])
-      .gte('created_at', weekAgo.toISOString()),
+      .gte('created_at', weekAgo.toISOString())),
     supabaseAdmin
       .from('employees')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('is_active', true),
-    supabaseAdmin
+    withLocation(supabaseAdmin
       .from('verifications')
       .select('created_at,status')
       .eq('company_id', companyId)
-      .gte('created_at', weekAgo.toISOString()),
+      .gte('created_at', weekAgo.toISOString())),
     // Últimas 8 verificaciones con detalle para actividad reciente
-    supabaseAdmin
+    withLocation(supabaseAdmin
       .from('verifications')
       .select('id,created_at,status,extracted_amount,extracted_sender,whatsapp_from,employees(name)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
-      .limit(8),
+      .limit(8)),
     // Transacciones pendientes sin verificar
     supabaseAdmin
       .from('transactions')
@@ -56,12 +60,12 @@ export default async function handler(req, res) {
       .eq('company_id', companyId)
       .eq('status', 'pending'),
     // Monto total verificado (real) en el mes
-    supabaseAdmin
+    withLocation(supabaseAdmin
       .from('verifications')
       .select('extracted_amount')
       .eq('company_id', companyId)
       .eq('status', 'real')
-      .gte('created_at', monthAgo.toISOString()),
+      .gte('created_at', monthAgo.toISOString())),
   ]);
 
   // Agrupar por día (últimos 7 días)

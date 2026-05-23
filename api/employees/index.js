@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { name, whatsapp_number } = req.body || {};
+    const { name, whatsapp_number, location_id } = req.body || {};
     if (!name || !whatsapp_number) return res.status(400).json({ error: 'name y whatsapp_number requeridos' });
 
     // Verificar suscripción y límite del plan
@@ -32,9 +32,34 @@ export default async function handler(req, res) {
     const number = String(whatsapp_number).trim().startsWith('+')
       ? String(whatsapp_number).trim()
       : `+${String(whatsapp_number).trim()}`;
+
+    // Validar que la sede pertenece a esta empresa
+    let resolvedLocationId = location_id || null;
+    if (location_id) {
+      const { data: loc } = await supabaseAdmin
+        .from('company_locations')
+        .select('id')
+        .eq('id', location_id)
+        .eq('company_id', companyId)
+        .maybeSingle();
+      if (!loc) resolvedLocationId = null;
+    }
+    // Si no se especificó sede, usar la primera activa
+    if (!resolvedLocationId) {
+      const { data: firstLoc } = await supabaseAdmin
+        .from('company_locations')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      resolvedLocationId = firstLoc?.id || null;
+    }
+
     const { data, error } = await supabaseAdmin
       .from('employees')
-      .insert({ name, whatsapp_number: number, company_id: companyId })
+      .insert({ name, whatsapp_number: number, company_id: companyId, location_id: resolvedLocationId })
       .select()
       .single();
     if (error) return res.status(400).json({ error: error.message });
@@ -44,7 +69,7 @@ export default async function handler(req, res) {
   if (req.method === 'PATCH') {
     const { id, ...updates } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id required' });
-    const allowed = ['name', 'whatsapp_number', 'is_active'];
+    const allowed = ['name', 'whatsapp_number', 'is_active', 'location_id'];
     const patch = Object.fromEntries(Object.entries(updates).filter(([k]) => allowed.includes(k)));
     const { data, error } = await supabaseAdmin
       .from('employees')

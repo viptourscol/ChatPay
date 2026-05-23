@@ -10,15 +10,15 @@ import {
 
 /* ─── Constantes ─────────────────────────────────────────── */
 const PLAN_OPTS = [
-  { value: 'free',        label: 'Free Trial',  employees: 3,      verifications: 50,     bankAccounts: 1,      adminAlerts: 10,     adminNumbers: 1, price: 0,      color: 'slate'   },
-  { value: 'basico',      label: 'Básico',      employees: 2,      verifications: 300,    bankAccounts: 1,      adminAlerts: 0,      adminNumbers: 0, price: 49900,  color: 'blue'    },
-  { value: 'estandar',    label: 'Estándar',    employees: 5,      verifications: 800,    bankAccounts: 2,      adminAlerts: 20,     adminNumbers: 1, price: 99900,  color: 'emerald' },
-  { value: 'pro',         label: 'Pro',         employees: 15,     verifications: 2500,   bankAccounts: 5,      adminAlerts: 50,     adminNumbers: 2, price: 199900, color: 'violet'  },
-  { value: 'empresarial', label: 'Empresarial', employees: 999999, verifications: 999999, bankAccounts: 999999, adminAlerts: 999999, adminNumbers: 2, price: 349900, color: 'purple'  },
-  // Legacy — mantener compatibilidad con cuentas existentes
-  { value: 'starter',    label: 'Starter (legacy)',    employees: 1,      verifications: 200,    bankAccounts: 1,      adminAlerts: 0,      adminNumbers: 0, price: 49900,  color: 'blue'   },
-  { value: 'business',   label: 'Business (legacy)',   employees: 20,     verifications: 1000,   bankAccounts: 3,      adminAlerts: 20,     adminNumbers: 1, price: 129900, color: 'emerald'},
-  { value: 'enterprise', label: 'Enterprise (legacy)', employees: 999999, verifications: 999999, bankAccounts: 999999, adminAlerts: 999999, adminNumbers: 2, price: 299900, color: 'purple' },
+  { value: 'free',        label: 'Free Trial',  employees: 3,      verifications: 50,     bankAccounts: 1,      adminAlerts: 10,     adminNumbers: 1, locations: 1,   price: 0,      color: 'slate'   },
+  { value: 'basico',      label: 'Básico',      employees: 2,      verifications: 300,    bankAccounts: 1,      adminAlerts: 0,      adminNumbers: 0, locations: 1,   price: 49900,  color: 'blue'    },
+  { value: 'estandar',    label: 'Estándar',    employees: 5,      verifications: 800,    bankAccounts: 2,      adminAlerts: 20,     adminNumbers: 1, locations: 3,   price: 99900,  color: 'emerald' },
+  { value: 'pro',         label: 'Pro',         employees: 15,     verifications: 2500,   bankAccounts: 5,      adminAlerts: 50,     adminNumbers: 2, locations: 15,  price: 199900, color: 'violet'  },
+  { value: 'empresarial', label: 'Empresarial', employees: 999999, verifications: 999999, bankAccounts: 999999, adminAlerts: 999999, adminNumbers: 2, locations: 999, price: 349900, color: 'purple'  },
+  // Legacy
+  { value: 'starter',    label: 'Starter (legacy)',    employees: 1,      verifications: 200,    bankAccounts: 1,      adminAlerts: 0,      adminNumbers: 0, locations: 1,   price: 49900,  color: 'blue'   },
+  { value: 'business',   label: 'Business (legacy)',   employees: 20,     verifications: 1000,   bankAccounts: 3,      adminAlerts: 20,     adminNumbers: 1, locations: 3,   price: 129900, color: 'emerald'},
+  { value: 'enterprise', label: 'Enterprise (legacy)', employees: 999999, verifications: 999999, bankAccounts: 999999, adminAlerts: 999999, adminNumbers: 2, locations: 999, price: 299900, color: 'purple' },
 ];
 
 const STATUS_OPTS = [
@@ -121,6 +121,7 @@ function EditModal({ company, onClose, onSave, isPending }) {
       max_bank_accounts:       opt.bankAccounts,
       max_admin_alerts:        opt.adminAlerts,
       max_admin_numbers:       opt.adminNumbers,
+      max_locations:           opt.locations,
     }));
   }
 

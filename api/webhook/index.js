@@ -172,6 +172,7 @@ async function handleWhatsApp(req, res) {
           employee_id: employee.id,
           transaction_id: txId,
           company_id: companyId,
+          location_id: employee.location_id || null,
           status: 'real',
           extracted_amount: pending.extracted_amount,
           extracted_reference: pending.extracted_reference,
@@ -223,6 +224,7 @@ async function handleWhatsApp(req, res) {
       await supabaseAdmin.from('verifications').insert({
         employee_id: employee.id,
         company_id: companyId,
+        location_id: employee.location_id || null,
         whatsapp_message_id: wamid,
         whatsapp_from: fromE164,
         comprobante_image_url: path,
@@ -333,6 +335,7 @@ async function handleWhatsApp(req, res) {
     await supabaseAdmin.from('verifications').insert({
       employee_id: employee.id,
       company_id: companyId,
+      location_id: employee.location_id || null,
       transaction_id: transaction?.id || null,
       status,
       extracted_amount: extracted.amount || null,
