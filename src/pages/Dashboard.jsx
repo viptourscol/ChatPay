@@ -208,7 +208,7 @@ export default function Dashboard() {
 
   const { data: locData } = useQuery({
     queryKey: ['locations'],
-    queryFn: () => api('/api/locations'),
+    queryFn: () => api('/api/employees', { query: { resource: 'locations' } }),
   });
   const locations = locData?.items?.filter(l => l.is_active) || [];
   const multiSede = locations.length > 1;

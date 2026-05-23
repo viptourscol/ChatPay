@@ -135,7 +135,7 @@ export default function Locations() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['locations'],
-    queryFn: () => api('/api/locations'),
+    queryFn: () => api('/api/employees', { query: { resource: 'locations' } }),
   });
 
   const locations   = data?.items || [];
@@ -146,8 +146,8 @@ export default function Locations() {
   const saveMut = useMutation({
     mutationFn: ({ form, id }) =>
       id
-        ? api('/api/locations', { method: 'PATCH', body: { id, ...form } })
-        : api('/api/locations', { method: 'POST', body: form }),
+        ? api('/api/employees', { method: 'PATCH', query: { resource: 'locations' }, body: { id, ...form } })
+        : api('/api/employees', { method: 'POST',  query: { resource: 'locations' }, body: form }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['locations'] });
       setModal(null);
@@ -159,8 +159,8 @@ export default function Locations() {
   const toggleMut = useMutation({
     mutationFn: ({ id, is_active }) =>
       is_active
-        ? api('/api/locations', { method: 'DELETE', body: { id } })
-        : api('/api/locations', { method: 'PATCH', body: { id, is_active: true } }),
+        ? api('/api/employees', { method: 'DELETE', query: { resource: 'locations' }, body: { id } })
+        : api('/api/employees', { method: 'PATCH',  query: { resource: 'locations' }, body: { id, is_active: true } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['locations'] }),
     onError: e => setToggleError(e.message),
   });
