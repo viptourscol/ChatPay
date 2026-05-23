@@ -19,7 +19,8 @@ export default async function handler(req, res) {
         .select('*')
         .eq('company_id', companyId)
         .order('created_at', { ascending: true });
-      if (error) return res.status(500).json({ error: error.message });
+      // Si la tabla no existe aún (migración pendiente), devolver vacío
+      if (error) return res.json({ items: [], max_locations: company.max_locations ?? 1 });
 
       const locationIds = data.map(l => l.id);
       const { data: empCounts } = await supabaseAdmin
