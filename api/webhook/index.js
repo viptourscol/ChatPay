@@ -365,116 +365,131 @@ async function handleSms(req, res) {
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return res.status(401).json({ error: 'Token requerido' });
 
-  const { data: company } = await supabaseAdmin
-    .from('companies')
-    .select('id, is_active')
-    .eq('sms_webhook_token', token)
-    .maybeSingle();
-
-  if (!company || !company.is_active) return res.status(401).json({ error: 'Token inválido' });
-
-  const { text, received_at, source = 'android' } = req.body || {};
-  if (!text) return res.status(400).json({ error: 'text requerido' });
-
-  const companyId = company.id;
-  const parsed = parseBankSms(text, received_at);
-
-  // Si no se pudo parsear como SMS bancario, igual lo registramos como ignorado
-  if (!parsed) {
-    await supabaseAdmin.from('transaction_sms').insert({
-      company_id: companyId,
-      raw_text: text,
-      received_at: received_at || new Date().toISOString(),
-      source,
-      status: 'ignored'
-    });
-    return res.status(200).json({ ok: true, status: 'ignored', reason: 'no_parse' });
+  // Soportar body como JSON o como texto plano (cuando iOS envía "Solicitar cuerpo: Archivo")
+  let bodyText, bodySource, bodyReceivedAt;
+  const ct = req.headers['content-type'] || '';
+  if (ct.includes('application/json')) {
+    bodyText       = req.body?.text;
+    bodySource     = req.body?.source || 'ios';
+    bodyReceivedAt = req.body?.received_at;
+  } else {
+    // body llegó como texto plano (modo "Archivo" de iOS Atajos)
+    const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? '');
+    bodyText   = raw;
+    bodySource = 'ios';
   }
+  if (!bodyText) return res.status(400).json({ error: 'text requerido' });
 
-  // Intentar vincular con transacción existente
-  let transactionId = null;
-  let matchStatus = 'pending_match';
+  // Responder de inmediato a iOS para evitar timeout (cold start Vercel ~3-5s)
+  res.status(200).json({ ok: true });
 
-  // Estrategia 1: match exacto por referencia
-  if (parsed.reference) {
-    const { data: txByRef } = await supabaseAdmin
-      .from('transactions')
-      .select('id, status')
-      .eq('company_id', companyId)
-      .eq('reference_number', parsed.reference)
-      .maybeSingle();
-
-    if (txByRef) {
-      transactionId = txByRef.id;
-      // Si ya fue verificada como real, marcar ignorado
-      const { data: realVerif } = await supabaseAdmin
-        .from('verifications')
-        .select('id')
-        .eq('transaction_id', txByRef.id)
-        .eq('status', 'real')
+  // Procesamiento async (fire-and-forget)
+  (async () => {
+    try {
+      const { data: company } = await supabaseAdmin
+        .from('companies')
+        .select('id, is_active')
+        .eq('sms_webhook_token', token)
         .maybeSingle();
-      matchStatus = realVerif ? 'ignored' : 'linked';
-    }
-  }
 
-  // Estrategia 2: match por monto + ventana de ±15 min (solo si no hay referencia match)
-  if (!transactionId && parsed.amount) {
-    const d = new Date(parsed.date);
-    const lo = new Date(d.getTime() - 15 * 60 * 1000).toISOString();
-    const hi = new Date(d.getTime() + 15 * 60 * 1000).toISOString();
-    const { data: txByAmount } = await supabaseAdmin
-      .from('transactions')
-      .select('id')
-      .eq('company_id', companyId)
-      .eq('amount', parsed.amount)
-      .gte('transaction_date', lo)
-      .lte('transaction_date', hi)
-      .maybeSingle();
+      if (!company || !company.is_active) return;
 
-    if (txByAmount) {
-      transactionId = txByAmount.id;
-      matchStatus = 'linked';
-    }
-  }
+      const companyId = company.id;
+      const parsed = parseBankSms(bodyText, bodyReceivedAt);
 
-  // Si el SMS llegó primero (no hay transacción), crear una como fuente SMS
-  if (!transactionId && matchStatus === 'pending_match') {
-    const { data: newTx } = await supabaseAdmin
-      .from('transactions')
-      .insert({
+      if (!parsed) {
+        await supabaseAdmin.from('transaction_sms').insert({
+          company_id: companyId,
+          raw_text: bodyText,
+          received_at: bodyReceivedAt || new Date().toISOString(),
+          source: bodySource,
+          status: 'ignored'
+        });
+        return;
+      }
+
+      let transactionId = null;
+      let matchStatus = 'pending_match';
+
+      if (parsed.reference) {
+        const { data: txByRef } = await supabaseAdmin
+          .from('transactions')
+          .select('id, status')
+          .eq('company_id', companyId)
+          .eq('reference_number', parsed.reference)
+          .maybeSingle();
+
+        if (txByRef) {
+          transactionId = txByRef.id;
+          const { data: realVerif } = await supabaseAdmin
+            .from('verifications')
+            .select('id')
+            .eq('transaction_id', txByRef.id)
+            .eq('status', 'real')
+            .maybeSingle();
+          matchStatus = realVerif ? 'ignored' : 'linked';
+        }
+      }
+
+      if (!transactionId && parsed.amount) {
+        const d = new Date(parsed.date);
+        const lo = new Date(d.getTime() - 15 * 60 * 1000).toISOString();
+        const hi = new Date(d.getTime() + 15 * 60 * 1000).toISOString();
+        const { data: txByAmount } = await supabaseAdmin
+          .from('transactions')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('amount', parsed.amount)
+          .gte('transaction_date', lo)
+          .lte('transaction_date', hi)
+          .maybeSingle();
+
+        if (txByAmount) {
+          transactionId = txByAmount.id;
+          matchStatus = 'linked';
+        }
+      }
+
+      if (!transactionId && matchStatus === 'pending_match') {
+        const { data: newTx } = await supabaseAdmin
+          .from('transactions')
+          .insert({
+            company_id: companyId,
+            amount: parsed.amount,
+            reference_number: parsed.reference || null,
+            sender_name: parsed.senderName || null,
+            transaction_date: parsed.date,
+            raw_subject: `SMS ${parsed.bank}`,
+            raw_snippet: bodyText.slice(0, 200),
+            status: 'pending',
+            source: 'sms'
+          })
+          .select('id')
+          .single();
+        if (newTx) {
+          transactionId = newTx.id;
+          matchStatus = 'linked';
+        }
+      }
+
+      await supabaseAdmin.from('transaction_sms').insert({
         company_id: companyId,
+        transaction_id: transactionId,
+        raw_text: bodyText,
+        bank: parsed.bank,
         amount: parsed.amount,
-        reference_number: parsed.reference || null,
-        sender_name: parsed.senderName || null,
-        transaction_date: parsed.date,
-        raw_subject: `SMS ${parsed.bank}`,
-        raw_snippet: text.slice(0, 200),
-        status: 'pending',
-        source: 'sms'
-      })
-      .select('id')
-      .single();
-    if (newTx) {
-      transactionId = newTx.id;
-      matchStatus = 'linked';
+        reference: parsed.reference,
+        sender_name: parsed.senderName,
+        received_at: bodyReceivedAt || new Date().toISOString(),
+        source: bodySource,
+        status: matchStatus
+      });
+
+      console.log(`[sms-webhook] company=${companyId} amount=${parsed.amount} ref=${parsed.reference} status=${matchStatus}`);
+    } catch (err) {
+      console.error('[sms-webhook] error:', err);
     }
-  }
-
-  await supabaseAdmin.from('transaction_sms').insert({
-    company_id: companyId,
-    transaction_id: transactionId,
-    raw_text: text,
-    bank: parsed.bank,
-    amount: parsed.amount,
-    reference: parsed.reference,
-    sender_name: parsed.senderName,
-    received_at: received_at || new Date().toISOString(),
-    source,
-    status: matchStatus
-  });
-
-  console.log(`[sms-webhook] company=${companyId} amount=${parsed.amount} ref=${parsed.reference} status=${matchStatus}`);
-  return res.status(200).json({ ok: true, status: matchStatus, transaction_id: transactionId });
+  })();
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
