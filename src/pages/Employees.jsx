@@ -174,6 +174,7 @@ export default function Employees() {
   });
   const locations = locData?.items?.filter(l => l.is_active) || [];
   const multiSede = locations.length > 1;
+  const maxEmployees = data?.max_employees ?? null;
 
   const create = useMutation({
     mutationFn: (body) => api('/api/employees', { method: 'POST', body }),
@@ -235,6 +236,27 @@ export default function Employees() {
           </div>
         </div>
       </div>
+
+      {/* Barra de cuota del plan */}
+      {maxEmployees !== null && (
+        <div className="card mb-6 py-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-slate-500 font-medium">Cupo de empleados según tu plan</span>
+            <span className={`text-xs font-semibold ${active >= maxEmployees ? 'text-red-600' : 'text-slate-700'}`}>
+              {active} / {maxEmployees} activos
+            </span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all ${active >= maxEmployees ? 'bg-red-500' : active / maxEmployees >= 0.8 ? 'bg-amber-400' : 'bg-emerald-500'}`}
+              style={{ width: `${Math.min((active / maxEmployees) * 100, 100)}%` }}
+            />
+          </div>
+          {active >= maxEmployees && (
+            <p className="text-xs text-red-500 mt-1.5">Límite alcanzado. Actualiza tu plan para agregar más empleados.</p>
+          )}
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="card">

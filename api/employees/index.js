@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
-    return res.json({ items: data });
+    return res.json({ items: data, max_employees: company.max_employees ?? null });
   }
 
   if (req.method === 'POST') {
