@@ -6,7 +6,7 @@ import {
   Building2, Users, Mail, Tag, Code2,
   Clipboard, Check, User, Lock, Smartphone, Landmark,
   RefreshCw, Loader2, CheckCircle2, Save, Zap,
-  PlusCircle, Trash2, CreditCard
+  PlusCircle, Trash2, CreditCard, Info, ChevronDown, ChevronUp, Copy
 } from 'lucide-react';
 
 const TAX_REGIMES = [
@@ -23,8 +23,206 @@ const TABS = [
   { id: 'usuarios',   label: 'Usuarios',   Icon: Users },
   { id: 'conexiones', label: 'Conexiones', Icon: Mail },
   { id: 'egresos',    label: 'Egresos',    Icon: Tag },
+  { id: 'sms',        label: 'SMS Backup', Icon: Smartphone },
   { id: 'api',        label: 'API Docs',   Icon: Code2 },
 ];
+
+const WEBHOOK_URL = 'https://chat-pay-six.vercel.app/api/webhook?provider=sms';
+
+function CopyBtn({ text, label = 'Copiar' }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium transition-colors shrink-0"
+    >
+      {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+      {copied ? 'Copiado' : label}
+    </button>
+  );
+}
+
+function InstructionBlock({ title, subtitle, iconColor, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${iconColor}`}>
+            <Smartphone size={16} />
+          </div>
+          <div>
+            <p className="font-medium text-slate-800 text-sm">{title}</p>
+            <p className="text-xs text-slate-500">{subtitle}</p>
+          </div>
+        </div>
+        {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+      </button>
+      {open && <div className="px-4 pb-4 border-t border-slate-100">{children}</div>}
+    </div>
+  );
+}
+
+function TabSms() {
+  const qc = useQueryClient();
+  const [phone, setPhone] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['sms-token'],
+    queryFn: () => api('/api/stats', { query: { resource: 'sms-token' } }),
+  });
+
+  if (data?.sms_phone_number && !phone) setPhone(data.sms_phone_number);
+
+  const token = data?.sms_webhook_token;
+  const currentPhone = data?.sms_phone_number || '';
+
+  const savePhone = useMutation({
+    mutationFn: () => api('/api/stats', { method: 'POST', query: { resource: 'sms-token' }, body: { phone } }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sms-token'] }); setSaved(true); setTimeout(() => setSaved(false), 2000); }
+  });
+
+  const rotateToken = useMutation({
+    mutationFn: () => api('/api/stats', { method: 'POST', query: { resource: 'sms-token' }, body: { rotate: true } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sms-token'] })
+  });
+
+  const migrationPending = !token && !isLoading;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="font-semibold text-slate-800 mb-1">Respaldo por SMS bancarios</h3>
+        <p className="text-slate-500 text-sm">
+          Cuando el correo del banco falla o llega tarde, el sistema puede recibir la notificación
+          de pago directamente desde el SMS bancario. Configura tu número y activa el reenvío automático.
+        </p>
+      </div>
+
+      {migrationPending && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+          <Info size={15} className="shrink-0 mt-0.5" />
+          <span>Activa esta funcionalidad ejecutando la migración <strong>0015</strong> en el SQL Editor de Supabase.</span>
+        </div>
+      )}
+
+      {/* Número de celular */}
+      <div>
+        <label className="label">Número de celular que recibe alertas del banco</label>
+        <p className="text-xs text-slate-400 mb-2">El número que el banco tiene registrado para enviarle alertas SMS.</p>
+        <div className="flex gap-2">
+          <input
+            className="input flex-1"
+            placeholder="+573001234567"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            disabled={migrationPending}
+          />
+          <button
+            className="btn-primary flex items-center gap-2 shrink-0"
+            onClick={() => savePhone.mutate()}
+            disabled={savePhone.isPending || phone === currentPhone || migrationPending}
+          >
+            {saved ? <Check size={15} /> : <Save size={15} />}
+            {saved ? 'Guardado' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+
+      {/* Token */}
+      {!migrationPending && (
+        <div>
+          <label className="label">Token del webhook SMS</label>
+          <p className="text-xs text-slate-400 mb-2">Úsalo para autenticar el reenvío desde tu celular. No lo compartas.</p>
+          {isLoading ? (
+            <div className="h-10 bg-slate-100 rounded-xl animate-pulse" />
+          ) : (
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono text-slate-700 truncate">
+                {token}
+              </code>
+              <CopyBtn text={token} />
+              <button
+                onClick={() => rotateToken.mutate()}
+                disabled={rotateToken.isPending}
+                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                title="Rotar token"
+              >
+                <RefreshCw size={14} className={rotateToken.isPending ? 'animate-spin' : ''} />
+              </button>
+            </div>
+          )}
+          {token && (
+            <div className="flex items-start gap-2 mt-2 p-2.5 bg-amber-50 rounded-lg">
+              <Info size={12} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-700">Si rotas el token, actualízalo en la automatización de tu celular.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Instrucciones */}
+      {token && (
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Instrucciones de configuración</p>
+
+          <InstructionBlock title="Android — MacroDroid" subtitle="Automatización gratuita, sin root" iconColor="bg-green-50 text-green-600">
+            <ol className="space-y-3 list-decimal list-inside text-sm text-slate-600 pt-3">
+              <li>Descarga <strong>MacroDroid</strong> desde Google Play (gratis).</li>
+              <li>Crea una macro → Trigger: <em>SMS recibido</em> → Remitente contiene: <code className="bg-slate-100 px-1 rounded">Bancolombia</code></li>
+              <li className="space-y-2">Acción: <em>Solicitud HTTP</em>:
+                <div className="mt-2 space-y-1.5">
+                  {[['URL', WEBHOOK_URL], ['Método', 'POST'], ['Header', `Authorization: Bearer ${token}`]].map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-xs">
+                      <span className="text-slate-400 shrink-0 mr-2">{k}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <code className="font-mono text-slate-700 truncate">{v}</code>
+                        <CopyBtn text={v} />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="bg-slate-50 rounded-lg px-3 py-2 text-xs">
+                    <p className="text-slate-400 mb-1">Body (JSON) — usa variables de MacroDroid:</p>
+                    <code className="font-mono text-slate-700 break-all">{'{"text": "[SMS_BODY]", "source": "android", "received_at": "[UNIX_TIME_MS]"}'}</code>
+                    <CopyBtn text='{"text": "[SMS_BODY]", "source": "android", "received_at": "[UNIX_TIME_MS]"}' label="Copiar body" />
+                  </div>
+                </div>
+              </li>
+              <li>Guarda y activa la macro. Prueba con un pago real.</li>
+            </ol>
+          </InstructionBlock>
+
+          <InstructionBlock title="iOS — Automatizaciones nativas" subtitle="App Atajos integrada, sin apps de terceros" iconColor="bg-blue-50 text-blue-600">
+            <ol className="space-y-3 list-decimal list-inside text-sm text-slate-600 pt-3">
+              <li>Abre la app <strong>Atajos</strong> (Shortcuts) → pestaña <em>Automatización</em>.</li>
+              <li>Nueva automatización → <em>Mensaje</em> → Remitente: agrega el contacto de Bancolombia (guárdalo antes).</li>
+              <li className="space-y-2">Acción: <em>Obtener contenido de URL</em>:
+                <div className="mt-2 space-y-1.5">
+                  {[['URL', WEBHOOK_URL], ['Método', 'POST'], ['Header', `Authorization: Bearer ${token}`]].map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-xs">
+                      <span className="text-slate-400 shrink-0 mr-2">{k}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <code className="font-mono text-slate-700 truncate">{v}</code>
+                        <CopyBtn text={v} />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="bg-slate-50 rounded-lg px-3 py-2 text-xs">
+                    <p className="text-slate-400 mb-1">Cuerpo JSON — usa la variable <em>Contenido del mensaje</em>:</p>
+                    <code className="font-mono text-slate-700 break-all">{'{"text": "CONTENIDO_MENSAJE", "source": "ios"}'}</code>
+                  </div>
+                </div>
+              </li>
+              <li>Desactiva <em>"Preguntar antes de ejecutar"</em>.</li>
+              <li className="text-amber-600">Guarda el número del banco en tus contactos — iOS solo detecta mensajes de contactos guardados.</li>
+            </ol>
+          </InstructionBlock>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Tab: Empresa ────────────────────────────────────────────────
 function TabEmpresa() {
@@ -598,6 +796,7 @@ export default function Settings() {
     usuarios: <TabUsuarios />,
     conexiones: <TabConexiones />,
     egresos: <TabEgresos />,
+    sms: <TabSms />,
     api: <TabApiDocs />
   };
 

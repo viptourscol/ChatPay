@@ -1,6 +1,7 @@
 import { requireUser } from '../../lib/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireCompany } from '../../lib/getCompany.js';
+import { randomUUID } from 'crypto';
 
 export default async function handler(req, res) {
   const user = await requireUser(req, res);
@@ -9,6 +10,37 @@ export default async function handler(req, res) {
   const company = await requireCompany(user.id, res);
   if (!company) return;
   const companyId = company.id;
+
+  // ── Sub-recurso: token SMS ─────────────────────────────────────────────────
+  if (req.query.resource === 'sms-token') {
+    if (req.method === 'GET') {
+      const { data } = await supabaseAdmin
+        .from('companies')
+        .select('sms_webhook_token, sms_phone_number')
+        .eq('id', companyId)
+        .maybeSingle();
+      // Si la columna no existe aún (migración pendiente), devolver null sin error
+      if (!data) return res.json({ sms_webhook_token: null, sms_phone_number: null });
+      return res.json(data);
+    }
+    if (req.method === 'POST') {
+      const { phone, rotate } = req.body || {};
+      const patch = {};
+      if (phone !== undefined) patch.sms_phone_number = phone || null;
+      if (rotate) patch.sms_webhook_token = randomUUID();
+      if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nada que actualizar' });
+      const { data, error } = await supabaseAdmin
+        .from('companies')
+        .update(patch)
+        .eq('id', companyId)
+        .select('sms_webhook_token, sms_phone_number')
+        .maybeSingle();
+      if (error) return res.status(400).json({ error: error.message });
+      return res.json(data);
+    }
+    return res.status(405).end();
+  }
+  // ──────────────────────────────────────────────────────────────────────────
   const { location_id } = req.query;
 
   const today = new Date();

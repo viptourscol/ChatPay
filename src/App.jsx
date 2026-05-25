@@ -18,6 +18,7 @@ import Settings from './pages/Settings.jsx';
 import Admin from './pages/Admin.jsx';
 import Subscription from './pages/Subscription.jsx';
 import Locations from './pages/Locations.jsx';
+import SuperAdminSms from './pages/SuperAdminSms.jsx';
 
 const SUPER_ADMIN_EMAIL = 'pagosviptourscol@gmail.com';
 
@@ -65,6 +66,14 @@ export default function App() {
           element={
             session.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
               ? <Admin />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        <Route
+          path="/admin/sms"
+          element={
+            session.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
+              ? <SuperAdminSms />
               : <Navigate to="/dashboard" replace />
           }
         />
