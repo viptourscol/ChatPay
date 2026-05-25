@@ -1,12 +1,26 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api.js';
 import { supabase } from '../lib/supabase.js';
 import { MessageSquare, Link2, Clock, AlertCircle, CheckCircle2, XCircle, RefreshCw, Filter } from 'lucide-react';
 
+async function fetchSmsData(filters) {
+  const query = { resource: 'sms-admin' };
+  if (filters.status)     query.status     = filters.status;
+  if (filters.bank)       query.bank       = filters.bank;
+  if (filters.company_id) query.company_id = filters.company_id;
+  return api('/api/stats', { query });
+}
+
+async function fetchCompaniesForFilter() {
+  const { data } = await supabase.from('companies').select('id, name').order('name');
+  return data || [];
+}
+
 const STATUS_CFG = {
-  linked:        { label: 'Vinculado',      bg: 'bg-emerald-100', text: 'text-emerald-700', Icon: CheckCircle2 },
-  pending_match: { label: 'Sin vincular',   bg: 'bg-amber-100',   text: 'text-amber-700',   Icon: Clock },
-  ignored:       { label: 'Ignorado',       bg: 'bg-slate-100',   text: 'text-slate-500',   Icon: XCircle },
+  linked:        { label: 'Vinculado',    bg: 'bg-emerald-100', text: 'text-emerald-700', Icon: CheckCircle2 },
+  pending_match: { label: 'Sin vincular', bg: 'bg-amber-100',   text: 'text-amber-700',   Icon: Clock },
+  ignored:       { label: 'Ignorado',     bg: 'bg-slate-100',   text: 'text-slate-500',   Icon: XCircle },
 };
 
 function fmtDate(s) {
@@ -22,38 +36,13 @@ function fmtMoney(n) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
 
-async function fetchSmsData({ filters }) {
-  let q = supabase
-    .from('transaction_sms')
-    .select(`
-      id, company_id, transaction_id, bank, amount, reference,
-      sender_name, received_at, source, status, raw_text, created_at,
-      companies(name)
-    `)
-    .order('received_at', { ascending: false })
-    .limit(100);
-
-  if (filters.status) q = q.eq('status', filters.status);
-  if (filters.bank)   q = q.eq('bank', filters.bank);
-  if (filters.company_id) q = q.eq('company_id', filters.company_id);
-
-  const { data, error } = await q;
-  if (error) throw error;
-  return data || [];
-}
-
-async function fetchCompaniesForFilter() {
-  const { data } = await supabase.from('companies').select('id, name').order('name');
-  return data || [];
-}
-
 export default function SuperAdminSms() {
   const [filters, setFilters] = useState({ status: '', bank: '', company_id: '' });
   const [expanded, setExpanded] = useState(null);
 
   const { data: smsList = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ['superadmin-sms', filters],
-    queryFn: () => fetchSmsData({ filters }),
+    queryFn: () => fetchSmsData(filters),
     refetchInterval: 30000,
   });
 

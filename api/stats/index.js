@@ -40,6 +40,30 @@ export default async function handler(req, res) {
     }
     return res.status(405).end();
   }
+
+  // ── Sub-recurso: SMS admin (solo superadmin) ───────────────────────────────
+  if (req.query.resource === 'sms-admin') {
+    const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+    if (!ADMIN_EMAILS.includes(user.email?.toLowerCase())) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    if (req.method !== 'GET') return res.status(405).end();
+
+    const { status, bank, company_id: filterCompany } = req.query;
+    let q = supabaseAdmin
+      .from('transaction_sms')
+      .select('id, company_id, transaction_id, bank, amount, reference, sender_name, received_at, source, status, raw_text, created_at, companies(name)')
+      .order('received_at', { ascending: false })
+      .limit(100);
+
+    if (status)        q = q.eq('status', status);
+    if (bank)          q = q.eq('bank', bank);
+    if (filterCompany) q = q.eq('company_id', filterCompany);
+
+    const { data, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data || []);
+  }
   // ──────────────────────────────────────────────────────────────────────────
   const { location_id } = req.query;
 

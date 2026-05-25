@@ -120,7 +120,7 @@ function TabSms() {
             disabled={migrationPending}
           />
           <button
-            className="btn-primary flex items-center gap-2 shrink-0"
+            className="btn btn-primary flex items-center gap-2 shrink-0"
             onClick={() => savePhone.mutate()}
             disabled={savePhone.isPending || phone === currentPhone || migrationPending}
           >
