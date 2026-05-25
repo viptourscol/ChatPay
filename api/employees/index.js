@@ -1,7 +1,7 @@
 import { requireUser } from '../../lib/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireCompany } from '../../lib/getCompany.js';
-import { checkEmployeeLimit, checkLocationLimit } from '../../lib/subscription.js';
+import { checkEmployeeLimit, checkLocationLimit, PLANS } from '../../lib/subscription.js';
 
 export default async function handler(req, res) {
   const user = await requireUser(req, res);
@@ -19,8 +19,8 @@ export default async function handler(req, res) {
         .select('*')
         .eq('company_id', companyId)
         .order('created_at', { ascending: true });
-      // Si la tabla no existe aún (migración pendiente), devolver vacío
-      if (error) return res.json({ items: [], max_locations: company.max_locations ?? 1 });
+      const maxLoc = company.max_locations ?? PLANS[company.plan]?.maxLocations ?? 1;
+      if (error) return res.json({ items: [], max_locations: maxLoc });
 
       const locationIds = data.map(l => l.id);
       const { data: empCounts } = await supabaseAdmin
@@ -35,7 +35,8 @@ export default async function handler(req, res) {
         countMap[e.location_id] = (countMap[e.location_id] || 0) + 1;
       }
       const items = data.map(l => ({ ...l, employee_count: countMap[l.id] || 0 }));
-      return res.json({ items, max_locations: company.max_locations ?? 1 });
+      const maxLoc = company.max_locations ?? PLANS[company.plan]?.maxLocations ?? 1;
+      return res.json({ items, max_locations: maxLoc });
     }
 
     if (req.method === 'POST') {
