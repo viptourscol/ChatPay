@@ -35,7 +35,6 @@ export default async function handler(req, res) {
         countMap[e.location_id] = (countMap[e.location_id] || 0) + 1;
       }
       const items = data.map(l => ({ ...l, employee_count: countMap[l.id] || 0 }));
-      const maxLoc = company.max_locations ?? PLANS[company.plan]?.maxLocations ?? 1;
       return res.json({ items, max_locations: maxLoc });
     }
 
