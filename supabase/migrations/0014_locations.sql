@@ -72,7 +72,7 @@ UPDATE public.companies SET max_locations = CASE
   WHEN plan IN ('free')                          THEN 1
   WHEN plan IN ('basico', 'starter')             THEN 1
   WHEN plan IN ('estandar', 'business')          THEN 3
-  WHEN plan IN ('pro')                           THEN 15
-  WHEN plan IN ('empresarial', 'enterprise')     THEN 999
+  WHEN plan IN ('pro')                           THEN 7
+  WHEN plan IN ('empresarial', 'enterprise')     THEN 15
   ELSE 1
 END;
