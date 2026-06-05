@@ -436,7 +436,7 @@ async function handleSms(req, res) {
 
   // SMS llegó primero — crear transacción
   if (!transactionId) {
-    const { data: newTx } = await supabaseAdmin
+    const { data: newTx, error: txErr } = await supabaseAdmin
       .from('transactions')
       .insert({
         company_id: companyId,
@@ -451,6 +451,7 @@ async function handleSms(req, res) {
       })
       .select('id')
       .single();
+    if (txErr) console.error('[sms-webhook] transaction insert error:', JSON.stringify(txErr));
     if (newTx) { transactionId = newTx.id; matchStatus = 'linked'; }
   }
 
