@@ -242,6 +242,7 @@ async function handleWhatsApp(req, res) {
       senderName: extracted.sender_name,
       companyId
     });
+    console.log(`[match] company=${companyId} ocr_amount=${extracted.amount} ocr_ref=${extracted.reference} ocr_sender=${extracted.sender_name} ocr_date=${extracted.date} → status=${status}`);
 
     if (status === 'ambiguous') {
       await supabaseAdmin.from('disambiguations').insert({
