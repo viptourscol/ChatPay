@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { ChevronLeft, ChevronRight, TrendingDown, DollarSign, FileText, Pencil, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingDown, DollarSign, FileText, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription.js';
 import FeatureGate from '../components/FeatureGate.jsx';
 
@@ -164,7 +164,7 @@ export default function Egresos() {
   const [modal, setModal] = useState(null); // null | 'new' | egreso objeto
   const [deleting, setDeleting] = useState(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['egresos', applied, page],
     queryFn: () => api('/api/egresos', { query: { ...applied, page } })
   });
@@ -200,10 +200,20 @@ export default function Egresos() {
           <h1 className="font-serif text-3xl">Egresos</h1>
           <p className="text-slate-500 text-sm">Gastos y pagos realizados por tu empresa.</p>
         </div>
-        <button disabled={!canUseEgresos} onClick={() => canUseEgresos && setModal('new')} className="btn btn-primary whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed">
-          <span className="sm:hidden">+ Nuevo</span>
-          <span className="hidden sm:inline">+ Registrar egreso</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+            title="Actualizar"
+          >
+            <RefreshCw size={16} className={isFetching ? 'animate-spin' : ''} />
+          </button>
+          <button disabled={!canUseEgresos} onClick={() => canUseEgresos && setModal('new')} className="btn btn-primary whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed">
+            <span className="sm:hidden">+ Nuevo</span>
+            <span className="hidden sm:inline">+ Registrar egreso</span>
+          </button>
+        </div>
       </header>
 
       {!canUseEgresos && (

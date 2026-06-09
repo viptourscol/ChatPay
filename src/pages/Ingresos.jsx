@@ -109,7 +109,7 @@ export default function Ingresos() {
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['ingresos', applied, page],
     queryFn: () => api('/api/ingresos', { query: { ...applied, page } })
   });
@@ -152,9 +152,10 @@ export default function Ingresos() {
           </button>
           <button
             onClick={() => refetch()}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-white text-slate-600 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700 transition-colors duration-150"
+            disabled={isFetching}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-white text-slate-600 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700 transition-colors duration-150 disabled:opacity-60"
           >
-            <RefreshCw size={14} /> Refrescar
+            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refrescar
           </button>
         </div>
       </header>
