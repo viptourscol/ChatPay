@@ -270,7 +270,6 @@ export default function Ingresos() {
                     </div>
                     <div className="min-w-0">
                       <span className="font-medium text-slate-800 truncate max-w-[130px] block">{t.sender_name || <span className="text-slate-400">—</span>}</span>
-                      <SourceBadge source={t.source} />
                     </div>
                   </div>
                 </td>
@@ -281,7 +280,10 @@ export default function Ingresos() {
                   <span className="font-mono text-xs text-slate-400">{t.reference_number || '—'}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={t.status} />
+                  <div className="flex flex-col items-start gap-1">
+                    <StatusBadge status={t.status} />
+                    <SourceBadge source={t.source} />
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <span className="font-semibold text-emerald-700 text-base">{fmtMoney(t.amount)}</span>
@@ -316,14 +318,16 @@ export default function Ingresos() {
                 <div className="min-w-0">
                   <div className="font-semibold text-slate-800 text-sm truncate">{t.sender_name || '—'}</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <SourceBadge source={t.source} />
                     <span className="text-xs text-slate-400">{fmtDate(t.transaction_date)} · {fmtTime(t.transaction_date)}</span>
                   </div>
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <div className="font-bold text-emerald-700 text-base">{fmtMoney(t.amount)}</div>
-                <div className="mt-1"><StatusBadge status={t.status} /></div>
+                <div className="flex items-center justify-end gap-1.5 mt-1">
+                  <SourceBadge source={t.source} />
+                  <StatusBadge status={t.status} />
+                </div>
               </div>
             </div>
             {(t.raw_snippet || t.raw_subject) && (
