@@ -3,8 +3,21 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import {
   TrendingUp, DollarSign, Clock, CheckCircle2, ChevronLeft,
-  ChevronRight, RefreshCw, Search, SlidersHorizontal, X
+  ChevronRight, RefreshCw, Search, SlidersHorizontal, X, Mail, MessageSquare
 } from 'lucide-react';
+
+function SourceBadge({ source }) {
+  if (source === 'sms') return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">
+      <MessageSquare size={9} />SMS
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">
+      <Mail size={9} />Email
+    </span>
+  );
+}
 
 function fmtMoney(n) {
   if (n == null) return '—';
@@ -255,7 +268,10 @@ export default function Ingresos() {
                     <div className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 text-xs font-bold grid place-items-center shrink-0">
                       {initials(t.sender_name)}
                     </div>
-                    <span className="font-medium text-slate-800 truncate max-w-[130px]">{t.sender_name || <span className="text-slate-400">—</span>}</span>
+                    <div className="min-w-0">
+                      <span className="font-medium text-slate-800 truncate max-w-[130px] block">{t.sender_name || <span className="text-slate-400">—</span>}</span>
+                      <SourceBadge source={t.source} />
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
@@ -299,7 +315,10 @@ export default function Ingresos() {
                 </div>
                 <div className="min-w-0">
                   <div className="font-semibold text-slate-800 text-sm truncate">{t.sender_name || '—'}</div>
-                  <div className="text-xs text-slate-400">{fmtDate(t.transaction_date)} · {fmtTime(t.transaction_date)}</div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <SourceBadge source={t.source} />
+                    <span className="text-xs text-slate-400">{fmtDate(t.transaction_date)} · {fmtTime(t.transaction_date)}</span>
+                  </div>
                 </div>
               </div>
               <div className="shrink-0 text-right">
