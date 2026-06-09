@@ -325,7 +325,7 @@ async function handleWhatsApp(req, res) {
             empleado:   employee.name,
             monto:      extracted.amount ? `$${Number(extracted.amount).toLocaleString('es-CO')}` : 'desconocido',
             referencia: extracted.reference || null,
-            estado:     { real: 'Verificado ✅', duplicate: 'Duplicado ⚠️', not_found: 'No encontrado ❓', error: 'Error 🚫' }[status] ?? status,
+            estado:     { real: 'Verificado ✅', duplicate: 'Duplicado ⚠️', fake: 'FALSO ❌', not_found: 'No encontrado ❓', error: 'Error 🚫' }[status] ?? status,
             fecha:      fmtDate,
           });
         }
