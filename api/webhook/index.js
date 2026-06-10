@@ -412,6 +412,38 @@ async function handleSms(req, res) {
     return res.status(200).json({ ok: true, status: 'ignored' });
   }
 
+  // SMS de débito (transferiste, pagaste, compraste) → egreso automático
+  if (parsed.transactionType === 'debit') {
+    const { data: comp } = await supabaseAdmin
+      .from('companies').select('user_id').eq('id', companyId).maybeSingle();
+    if (comp?.user_id) {
+      await supabaseAdmin.from('egresos').insert({
+        user_id: comp.user_id,
+        company_id: companyId,
+        description: bodyText.slice(0, 120),
+        amount: parsed.amount,
+        recipient: parsed.recipientName || null,
+        payment_date: new Date(parsed.date).toISOString().slice(0, 10),
+        method: 'transferencia',
+        category: 'otro',
+        source: 'sms',
+        notes: `SMS automático. Ref: ${parsed.reference || '—'}`,
+      });
+    }
+    await supabaseAdmin.from('transaction_sms').insert({
+      company_id: companyId,
+      raw_text: bodyText,
+      bank: parsed.bank,
+      amount: parsed.amount,
+      reference: parsed.reference,
+      received_at: bodyReceivedAt || new Date().toISOString(),
+      source: bodySource,
+      status: 'egreso'
+    });
+    console.log(`[sms-webhook] egreso company=${companyId} amount=${parsed.amount}`);
+    return res.status(200).json({ ok: true, status: 'egreso' });
+  }
+
   let transactionId = null;
   let matchStatus = 'pending_match';
   // Match por referencia exacta
