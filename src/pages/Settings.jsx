@@ -325,7 +325,7 @@ function TabEmpresa() {
             <p className="text-xs text-indigo-400 italic text-center py-2">Sin números configurados</p>
           )}
               {form.notification_whatsapp.map((contact, idx) => {
-            const maxNums = data?.plan === 'enterprise' ? 5 : data?.plan === 'business' ? 2 : 0;
+            const maxNums = ['enterprise','empresarial'].includes(data?.plan) ? 5 : ['business','basico','starter'].includes(data?.plan) ? 2 : data?.plan ? 2 : 0;
             const activeCount = form.notification_whatsapp.filter(c => c.active).length;
             const canActivate = contact.active || activeCount < maxNums;
             return (
@@ -377,13 +377,13 @@ function TabEmpresa() {
         <button
           type="button"
           onClick={() => {
-            const maxNums = data?.plan === 'enterprise' ? 5 : data?.plan === 'business' ? 2 : 0;
+            const maxNums = ['enterprise','empresarial'].includes(data?.plan) ? 5 : data?.plan ? 2 : 0;
             const activeCount = form.notification_whatsapp.filter(c => c.active).length;
             if (activeCount >= maxNums) return;
             set('notification_whatsapp', [...form.notification_whatsapp, { number: '', active: true }]);
           }}
           disabled={(() => {
-            const maxNums = data?.plan === 'enterprise' ? 5 : data?.plan === 'business' ? 2 : 0;
+            const maxNums = ['enterprise','empresarial'].includes(data?.plan) ? 5 : data?.plan ? 2 : 0;
             return form.notification_whatsapp.filter(c => c.active).length >= maxNums;
           })()}
           className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -392,9 +392,9 @@ function TabEmpresa() {
         </button>
         <p className="text-xs text-indigo-400 mt-2">
           Formato internacional: +57 seguido de 10 dígitos.
-          {data?.plan === 'starter' || !data?.plan
-            ? <span className="text-amber-500 font-medium"> Disponible desde el plan Business.</span>
-            : <span> Máx. {data?.plan === 'enterprise' ? 5 : 2} números en tu plan {data?.plan === 'enterprise' ? 'Enterprise' : 'Business'}.</span>
+          {!data?.plan
+            ? <span className="text-amber-500 font-medium"> Contacta al administrador para activar tu plan.</span>
+            : <span> Máx. {['enterprise','empresarial'].includes(data?.plan) ? 5 : 2} números en tu plan.</span>
           }
         </p>
       </div>
