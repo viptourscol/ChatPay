@@ -226,6 +226,11 @@ function TabSms() {
 }
 
 // ─── Tab: Empresa ────────────────────────────────────────────────
+function planWhatsappMax(plan) {
+  // free=1, basico=0, estandar=1, pro=2, empresarial=2
+  const MAP = { free: 1, basico: 0, estandar: 1, pro: 2, empresarial: 2, enterprise: 2, business: 1 };
+  return MAP[plan] ?? 0;
+}
 function TabEmpresa() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -325,7 +330,7 @@ function TabEmpresa() {
             <p className="text-xs text-indigo-400 italic text-center py-2">Sin números configurados</p>
           )}
               {form.notification_whatsapp.map((contact, idx) => {
-            const maxNums = ['empresarial','enterprise'].includes(data?.plan) ? 2 : ['basico','pro','business'].includes(data?.plan) ? 1 : 0;
+            const maxNums = planWhatsappMax(data?.plan);
             const activeCount = form.notification_whatsapp.filter(c => c.active).length;
             const canActivate = contact.active || activeCount < maxNums;
             return (
@@ -377,13 +382,13 @@ function TabEmpresa() {
         <button
           type="button"
           onClick={() => {
-            const maxNums = ['empresarial','enterprise'].includes(data?.plan) ? 2 : ['basico','pro','business'].includes(data?.plan) ? 1 : 0;
+            const maxNums = planWhatsappMax(data?.plan);
             const activeCount = form.notification_whatsapp.filter(c => c.active).length;
             if (activeCount >= maxNums) return;
             set('notification_whatsapp', [...form.notification_whatsapp, { number: '', active: true }]);
           }}
           disabled={(() => {
-            const maxNums = ['empresarial','enterprise'].includes(data?.plan) ? 2 : ['basico','pro','business'].includes(data?.plan) ? 1 : 0;
+            const maxNums = planWhatsappMax(data?.plan);
             return form.notification_whatsapp.filter(c => c.active).length >= maxNums;
           })()}
           className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -393,9 +398,9 @@ function TabEmpresa() {
         <p className="text-xs text-indigo-400 mt-2">
           Formato internacional: +57 seguido de 10 dígitos.
           {(() => {
-            const maxNums = ['empresarial','enterprise'].includes(data?.plan) ? 2 : ['basico','pro','business'].includes(data?.plan) ? 1 : 0;
-            if (!data?.plan || maxNums === 0) return <span className="text-amber-500 font-medium"> No disponible en tu plan actual.</span>;
-            return <span> Máx. {maxNums} número{maxNums !== 1 ? 's' : ''} en tu plan.</span>;
+            const max = planWhatsappMax(data?.plan);
+            if (max === 0) return <span className="text-amber-500 font-medium"> No disponible en tu plan actual.</span>;
+            return <span> Máx. {max} número{max !== 1 ? 's' : ''} en tu plan.</span>;
           })()}
         </p>
       </div>
