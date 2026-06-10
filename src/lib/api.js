@@ -1,8 +1,21 @@
 import { supabase } from './supabase.js';
 
+const STORAGE_KEY = 'chatpay_impersonating';
+
 async function authHeader() {
   const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {};
+  const headers = data.session?.access_token
+    ? { Authorization: `Bearer ${data.session.access_token}` }
+    : {};
+  // Si el super admin está impersonando una empresa, inyectar el header
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const imp = JSON.parse(raw);
+      if (imp?.id) headers['X-Impersonate-Company'] = imp.id;
+    }
+  } catch { /* ignorar */ }
+  return headers;
 }
 
 /** Error especial lanzado cuando el servidor devuelve 402 (pago requerido / cuenta suspendida) */

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireUser } from '../../lib/auth.js';
-import { requireCompany } from '../../lib/getCompany.js';
+import { resolveCompany } from '../../lib/getCompany.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,7 +10,8 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
 
-  const company = await requireCompany(user.id, res);
+  req._impersonateUserEmail = user.email;
+  const company = await resolveCompany(user.id, req, res);
   if (!company) return;
   const companyId = company.id;
 

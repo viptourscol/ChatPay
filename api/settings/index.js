@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireUser } from '../../lib/auth.js';
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -9,13 +11,20 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
 
+  // Soporte de impersonación para super admin (solo lectura vía GET)
+  const impersonateId = req.headers['x-impersonate-company'];
+  const isAdmin = ADMIN_EMAILS.includes((user.email || '').toLowerCase());
+  const impersonating = impersonateId && isAdmin;
+
   // GET — obtener settings de la empresa
   if (req.method === 'GET') {
-    const { data, error } = await supabaseAdmin
-      .from('companies')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    let query = supabaseAdmin.from('companies').select('*');
+    if (impersonating) {
+      query = query.eq('id', impersonateId);
+    } else {
+      query = query.eq('user_id', user.id);
+    }
+    const { data, error } = await query.single();
 
     // Si no existe, devolver vacío (se creará al guardar)
     if (error && error.code === 'PGRST116') {

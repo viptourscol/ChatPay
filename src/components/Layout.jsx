@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase.js';
 import { PaymentRequiredError } from '../lib/api.js';
 import PaymentWall from './PaymentWall.jsx';
 import { useSubscription } from '../hooks/useSubscription.js';
+import { useImpersonation } from '../lib/impersonation.js';
 import {
   LayoutDashboard, ShieldCheck, TrendingUp, TrendingDown,
-  Users, BarChart2, Settings, LogOut, Building2, ShieldAlert, CreditCard, Lock
+  Users, BarChart2, Settings, LogOut, Building2, ShieldAlert, CreditCard, Lock, X
 } from 'lucide-react';
 
 // Email del super admin — debe coincidir con ADMIN_EMAILS en el backend
@@ -24,11 +26,15 @@ const MODULES = [
 
 export default function Layout() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { impersonating, startImpersonating, stopImpersonating } = useImpersonation();
   const [user,        setUser]        = useState(null);
   const [company,     setCompany]     = useState(null);
-  // En móvil el sidebar empieza cerrado; en desktop abierto
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
-  const [suspended,   setSuspended]   = useState(null); // { company } si cuenta suspendida
+  const [suspended,   setSuspended]   = useState(null);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [allCompanies,     setAllCompanies]     = useState([]);
+  const [companySearch,    setCompanySearch]    = useState('');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user || null));
@@ -56,8 +62,38 @@ export default function Layout() {
 
   if (suspended) {
     const handleSignOut = async () => { await supabase.auth.signOut(); navigate('/login', { replace: true }); };
-    return <PaymentWall companyInfo={suspended.company} onSignOut={handleSignOut} />;
+    // Si el super admin está impersonando, permitir salir de la impersonación en lugar del PaymentWall
+    if (impersonating) {
+      // Solo mostrar banner, no bloquear con PaymentWall
+    } else {
+      return <PaymentWall companyInfo={suspended.company} onSignOut={handleSignOut} />;
+    }
   }
+
+  const openCompanyModal = async () => {
+    setCompanySearch('');
+    setShowCompanyModal(true);
+    if (allCompanies.length === 0) {
+      try {
+        const { api } = await import('../lib/api.js');
+        const list = await api('/api/admin/companies');
+        setAllCompanies(list);
+      } catch (e) { /* ignore */ }
+    }
+  };
+
+  const selectCompany = (c) => {
+    startImpersonating(c);
+    setShowCompanyModal(false);
+    queryClient.invalidateQueries();
+    navigate('/dashboard');
+  };
+
+  const handleStopImpersonating = () => {
+    stopImpersonating();
+    queryClient.invalidateQueries();
+    navigate('/dashboard');
+  };
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -65,11 +101,28 @@ export default function Layout() {
   };
 
   const initials = user?.email?.[0]?.toUpperCase() || '?';
-  const companyName = company?.name || user?.email?.split('@')[0] || 'Mi empresa';
+  const companyName = impersonating?.name || company?.name || user?.email?.split('@')[0] || 'Mi empresa';
   const { can } = useSubscription();
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* Banner de impersonación */}
+      {impersonating && (
+        <div className="bg-orange-500 text-white text-sm font-medium flex items-center justify-between px-4 py-2 shrink-0 z-50">
+          <span>
+            👁 Viendo como: <strong>{impersonating.name}</strong>
+            {impersonating.plan && <span className="ml-2 opacity-75 text-xs">[{impersonating.plan}]</span>}
+          </span>
+          <button
+            onClick={handleStopImpersonating}
+            className="flex items-center gap-1 rounded px-2 py-0.5 bg-orange-600 hover:bg-orange-700 transition text-xs"
+          >
+            <X size={12} /> Salir
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-1">
       {/* Backdrop móvil — cierra el sidebar al tocar fuera */}
       {sidebarOpen && (
         <div
@@ -198,6 +251,13 @@ export default function Layout() {
                   <ShieldAlert size={16} className="shrink-0" />
                   <span>SMS Monitor</span>
                 </NavLink>
+                <button
+                  onClick={() => { window.innerWidth < 768 && setSidebarOpen(false); openCompanyModal(); }}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition w-full text-orange-600 hover:bg-orange-50"
+                >
+                  <Building2 size={16} className="shrink-0" />
+                  <span>Cambiar empresa →</span>
+                </button>
               </>
             )}
           </div>
@@ -255,6 +315,54 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      </div>
+
+      {/* Modal selector de empresa (solo super admin) */}
+      {showCompanyModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-800">Seleccionar empresa</h2>
+              <button onClick={() => setShowCompanyModal(false)} className="p-1 rounded hover:bg-slate-100"><X size={16} /></button>
+            </div>
+            <div className="px-4 py-2 border-b border-slate-100">
+              <input
+                autoFocus
+                type="text"
+                placeholder="Buscar empresa..."
+                value={companySearch}
+                onChange={e => setCompanySearch(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div className="overflow-y-auto flex-1 p-2 space-y-1">
+              {allCompanies
+                .filter(c => c.name.toLowerCase().includes(companySearch.toLowerCase()))
+                .map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => selectCompany(c)}
+                    className="w-full text-left rounded-lg px-3 py-2 hover:bg-slate-50 transition flex items-center justify-between gap-2"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-slate-800">{c.name}</div>
+                      <div className="text-xs text-slate-400">{c.email_alias || c.id}</div>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      c.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                    }`}>
+                      {c.plan || 'sin plan'}
+                    </span>
+                  </button>
+                ))
+              }
+              {allCompanies.length === 0 && (
+                <div className="text-center py-8 text-slate-400 text-sm">Cargando...</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
