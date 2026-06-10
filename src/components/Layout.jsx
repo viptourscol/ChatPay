@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase.js';
 import { PaymentRequiredError } from '../lib/api.js';
 import PaymentWall from './PaymentWall.jsx';
 import { useSubscription } from '../hooks/useSubscription.js';
-import { useImpersonation } from '../lib/impersonation.js';
+import { useImpersonation } from '../lib/impersonation.jsx';
 import {
   LayoutDashboard, ShieldCheck, TrendingUp, TrendingDown,
   Users, BarChart2, Settings, LogOut, Building2, ShieldAlert, CreditCard, Lock, X
