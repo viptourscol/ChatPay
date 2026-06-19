@@ -10,39 +10,67 @@ const PLANS = {
     color: 'slate',
     icon: Clock,
     features: ['3 empleados', '50 verificaciones (14 días)', '1 alerta admin WA', 'Todas las funciones desbloqueadas']
-  },
-  basico: {
+  },  basico: {
     label: 'Básico',
     price: 49900,
     color: 'blue',
     icon: Zap,
-    features: ['2 empleados activos', '300 verificaciones / mes', '1 cuenta bancaria', 'Sin alertas admin WA', 'Soporte chat 48h']
+    features: [
+      '1 empleado activo',
+      '300 verificaciones / mes',
+      '1 cuenta bancaria (Bancolombia)',
+      'Dashboard básico',
+      'Exportar CSV',
+      'Soporte chat 48h',
+    ]
   },
   estandar: {
     label: 'Estándar',
     price: 99900,
     color: 'emerald',
     icon: Building2,
-    features: ['5 empleados activos', '800 verificaciones / mes', '2 cuentas bancarias', '1 número admin · 20 alertas WA/mes', 'Soporte chat 24h']
+    features: [
+      '2 empleados activos',
+      '800 verificaciones / mes',
+      '2 cuentas bancarias',
+      '1 número admin · 20 alertas WA/mes',
+      'Dashboard completo',
+      'Exportar CSV + Excel',
+      'Historial 90 días',
+      'Soporte chat 24h',
+    ]
   },
   pro: {
     label: 'Pro',
     price: 199900,
     color: 'violet',
     icon: Rocket,
-    features: ['15 empleados activos', '2.500 verificaciones / mes', '5 cuentas bancarias', '2 números admin · 50 alertas WA/mes', 'Egresos Gmail + Nómina', 'Soporte prioritario 8h']
-  },  empresarial: {
+    features: [
+      '5 empleados activos',
+      '2.500 verificaciones / mes',
+      '4 cuentas bancarias',
+      '2 números admin · 50 alertas WA/mes',
+      'Egresos automáticos desde Gmail',
+      'Cierre de nómina PDF/Excel/CSV',
+      'Dashboard por empleado',
+      'Historial 1 año',
+      'Soporte prioritario 8h',
+    ]
+  },
+  empresarial: {
     label: 'Empresarial',
     price: 349900,
     color: 'purple',
     icon: Crown,
     features: [
-      'Hasta 50 empleados activos',
+      '10 empleados activos',
       '10.000 verificaciones / mes',
-      '10 cuentas bancarias',
-      '3 números admin · 200 alertas WA/mes',
-      'Egresos Gmail + Nómina + CRM',
-      '1 sede · Soporte WhatsApp directo',
+      '8 cuentas bancarias',
+      '2 números admin · 200 alertas WA/mes',
+      'Egresos Gmail + Cierre nómina',
+      'Reportes programados por email',
+      'Historial ilimitado',
+      '1 sede · Soporte WhatsApp directo + onboarding',
     ],
     warning: '1 sede. Para múltiples locales el Plan Cadena ahorra hasta 43%.',
   },
@@ -482,7 +510,7 @@ export default function Subscription() {
               <TrendingDown size={18} className="text-emerald-600" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-emerald-800">Ejemplo real: 20 hoteles</p>
+              <p className="text-sm font-semibold text-emerald-800">Ejemplo real: 20 sedes</p>
               <p className="text-xs text-emerald-700">
                 Individual: <span className="line-through text-slate-400">{fmt(349900 * 20)}/mes</span>
                 {' '}→ Con plan Cadena: <strong>{fmt(199900 * 20)}/mes</strong>
@@ -492,7 +520,7 @@ export default function Subscription() {
           </div>
 
           <a
-            href="https://wa.me/573000000000?text=Hola%2C%20quiero%20información%20del%20Plan%20Cadena%20para%20mi%20grupo%20de%20hoteles"
+            href="https://wa.me/573192212758?text=Hola%2C%20quiero%20información%20del%20Plan%20Cadena%20para%20mi%20grupo%20de%20hoteles"
             target="_blank"
             rel="noopener noreferrer"
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white transition shadow-md"
