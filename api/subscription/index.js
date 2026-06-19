@@ -160,12 +160,15 @@ export default async function handler(req, res) {
       // Obtener empresa del usuario autenticado (más seguro que confiar en la URL)
       const { data: vCompany } = await supabaseAdmin
         .from('companies').select('id').eq('user_id', user.id).maybeSingle();
-      if (!vCompany) return res.status(404).json({ error: 'Empresa no encontrada' });
-
-      const PLAN_LIMITS = {
-        starter:    { max_employees: 1,        max_verifications_month: 200,    max_bank_accounts: 1 },
-        business:   { max_employees: 20,       max_verifications_month: 1000,   max_bank_accounts: 3 },
-        enterprise: { max_employees: 999999,   max_verifications_month: 999999, max_bank_accounts: 999999 },
+      if (!vCompany) return res.status(404).json({ error: 'Empresa no encontrada' });      const PLAN_LIMITS = {
+        basico:      { max_employees: 1,  max_verifications_month: 300,   max_bank_accounts: 1 },
+        estandar:    { max_employees: 2,  max_verifications_month: 800,   max_bank_accounts: 2 },
+        pro:         { max_employees: 5,  max_verifications_month: 2500,  max_bank_accounts: 4 },
+        empresarial: { max_employees: 10, max_verifications_month: 10000, max_bank_accounts: 8 },
+        // compat nombres anteriores
+        starter:     { max_employees: 1,  max_verifications_month: 300,   max_bank_accounts: 1 },
+        business:    { max_employees: 2,  max_verifications_month: 800,   max_bank_accounts: 2 },
+        enterprise:  { max_employees: 10, max_verifications_month: 10000, max_bank_accounts: 8 },
       };
       const vLimits    = PLAN_LIMITS[vPlan] || PLAN_LIMITS.starter;
       const vExpiresAt = new Date();

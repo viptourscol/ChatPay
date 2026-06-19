@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { supabase } from '../lib/supabase.js';
+import { useToast } from '../components/Toast.jsx';
 import {
   Building2, Users, Mail, Tag, Code2,
   Clipboard, Check, User, Lock, Smartphone, Landmark,
@@ -516,24 +517,33 @@ const BANKS = ['Bancolombia', 'Nequi', 'Daviplata', 'Davivienda', 'BBVA', 'Banco
 
 function TabBankAccounts() {
   const qc = useQueryClient();
+  const toast = useToast();
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ['bank-accounts'],
     queryFn: () => api('/api/bank-accounts'),
   });
   const [form, setForm] = useState({ label: '', bank_name: 'Bancolombia', bancolombia_email: '' });
   const [adding, setAdding] = useState(false);
-  const [err, setErr] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
   const handleAdd = async () => {
-    if (!form.bancolombia_email.trim()) return setErr('El email es requerido');
-    setAdding(true); setErr(null);
+    if (!form.bancolombia_email.trim()) {
+      toast.warning('El email del banco es requerido');
+      return;
+    }
+    setAdding(true);
     try {
       await api('/api/bank-accounts', { method: 'POST', body: form });
       qc.invalidateQueries({ queryKey: ['bank-accounts'] });
       setForm({ label: '', bank_name: 'Bancolombia', bancolombia_email: '' });
-    } catch (e) { setErr(e.message); }
-    finally { setAdding(false); }
+      toast.success('Cuenta bancaria agregada');
+    } catch (e) {
+      const isLimit = e.message?.toLowerCase().includes('máximo') || e.message?.toLowerCase().includes('límite');
+      toast.error(e.message || 'Error al agregar cuenta', {
+        title: isLimit ? 'Límite de plan alcanzado' : 'Error',
+        ...(isLimit && { action: { label: 'Ver planes', href: '/suscripcion' } }),
+      });
+    } finally { setAdding(false); }
   };
 
   const handleDelete = async (id) => {
@@ -544,6 +554,9 @@ function TabBankAccounts() {
         headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }
       });
       qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+      toast.success('Cuenta eliminada');
+    } catch {
+      toast.error('No se pudo eliminar la cuenta');
     } finally { setDeletingId(null); }
   };
 
@@ -605,9 +618,7 @@ function TabBankAccounts() {
         <div>
           <label className="text-xs text-slate-500 mb-1 block">Correo donde el banco envía las alertas</label>
           <input className="input" type="email" placeholder="Ej: mipago@gmail.com" value={form.bancolombia_email} onChange={(e) => setForm((f) => ({ ...f, bancolombia_email: e.target.value }))} />
-        </div>
-        {err && <p className="text-red-600 text-xs">⚠️ {err}</p>}
-        <button onClick={handleAdd} disabled={adding} className="btn btn-primary w-full">
+        </div>        <button onClick={handleAdd} disabled={adding} className="btn btn-primary w-full">
           {adding ? <><Loader2 size={14} className="animate-spin" /> Agregando…</> : <><PlusCircle size={14} /> Agregar cuenta</>}
         </button>
       </div>

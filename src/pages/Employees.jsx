@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
+import { useToast } from '../components/Toast.jsx';
 import { UserPlus, Search, MessageCircle, ToggleLeft, ToggleRight, Trash2, Users, CheckCircle2, XCircle, BarChart2, X, TrendingUp, AlertTriangle, Clock, DollarSign } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -160,6 +161,7 @@ function initials(name = '') {
 
 export default function Employees() {
   const qc = useQueryClient();
+  const toast = useToast();
   const [drawerEmp, setDrawerEmp] = useState(null);
   const { data, isLoading } = useQuery({
     queryKey: ['employees'],
@@ -181,15 +183,32 @@ export default function Employees() {
     onSuccess: () => {
       setForm({ name: '', whatsapp_number: '', location_id: '' });
       qc.invalidateQueries({ queryKey: ['employees'] });
+      toast.success('Empleado agregado correctamente');
+    },
+    onError: (err) => {
+      const msg = err?.message || 'Error al agregar empleado';
+      const isLimit = msg.toLowerCase().includes('máximo') || msg.toLowerCase().includes('límite');
+      toast.error(msg, {
+        title: isLimit ? 'Límite de plan alcanzado' : 'Error',
+        ...(isLimit && { action: { label: 'Ver planes', href: '/suscripcion' } }),
+      });
     },
   });
   const toggle = useMutation({
     mutationFn: (e) => api('/api/employees', { method: 'PATCH', body: { id: e.id, is_active: !e.is_active } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employees'] }),
+    onSuccess: (_, e) => {
+      qc.invalidateQueries({ queryKey: ['employees'] });
+      toast.success(e.is_active ? 'Empleado desactivado' : 'Empleado activado');
+    },
+    onError: (err) => toast.error(err?.message || 'Error al cambiar estado'),
   });
   const remove = useMutation({
     mutationFn: (id) => api('/api/employees', { method: 'DELETE', query: { id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employees'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] });
+      toast.success('Empleado eliminado');
+    },
+    onError: (err) => toast.error(err?.message || 'Error al eliminar empleado'),
   });
 
   const employees = (data?.items || []).filter((e) => {
@@ -292,9 +311,7 @@ export default function Employees() {
                   ))}
                 </select>
               </div>
-            )}
-            {create.error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{String(create.error.message)}</div>}
-            <button className="btn btn-primary w-full" disabled={create.isPending}>{create.isPending ? 'Guardando...' : 'Agregar empleado'}</button>
+            )}            <button className="btn btn-primary w-full" disabled={create.isPending}>{create.isPending ? 'Guardando...' : 'Agregar empleado'}</button>
           </form>
         </div>
 

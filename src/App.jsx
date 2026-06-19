@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase.js';
+import { ToastProvider } from './components/Toast.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -30,55 +31,58 @@ export default function App() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
-
   if (session === undefined) {
     return <div className="grid h-screen place-items-center text-slate-500">Cargando…</div>;
   }
 
   if (!session) {
     return (
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/registro" element={<Register />} />
-        <Route path="/como-activar" element={<ComoActivar />} />
-        <Route path="/planes" element={<Planes />} />
-        <Route path="/bancos-compatibles" element={<BancosCompatibles />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ToastProvider>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/registro" element={<Register />} />
+          <Route path="/como-activar" element={<ComoActivar />} />
+          <Route path="/planes" element={<Planes />} />
+          <Route path="/bancos-compatibles" element={<BancosCompatibles />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ToastProvider>
     );
   }
 
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/verificaciones" element={<Verifications />} />
-        <Route path="/empleados" element={<Employees />} />
-        <Route path="/reportes" element={<Reports />} />
-        <Route path="/ingresos" element={<Ingresos />} />
-        <Route path="/egresos" element={<Egresos />} />
-        <Route path="/sedes" element={<Locations />} />
-        <Route path="/configuracion" element={<Settings />} />
-        <Route path="/suscripcion" element={<Subscription />} />
-        <Route
-          path="/admin"
-          element={
-            session.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
-              ? <Admin />
-              : <Navigate to="/dashboard" replace />
-          }
-        />
-        <Route
-          path="/admin/sms"
-          element={
-            session.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
-              ? <SuperAdminSms />
-              : <Navigate to="/dashboard" replace />
-          }
-        />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Route>
-    </Routes>
+    <ToastProvider>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/verificaciones" element={<Verifications />} />
+          <Route path="/empleados" element={<Employees />} />
+          <Route path="/reportes" element={<Reports />} />
+          <Route path="/ingresos" element={<Ingresos />} />
+          <Route path="/egresos" element={<Egresos />} />
+          <Route path="/sedes" element={<Locations />} />
+          <Route path="/configuracion" element={<Settings />} />
+          <Route path="/suscripcion" element={<Subscription />} />
+          <Route
+            path="/admin"
+            element={
+              session.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
+                ? <Admin />
+                : <Navigate to="/dashboard" replace />
+            }
+          />
+          <Route
+            path="/admin/sms"
+            element={
+              session.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
+                ? <SuperAdminSms />
+                : <Navigate to="/dashboard" replace />
+            }
+          />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+      </Routes>
+    </ToastProvider>
   );
 }

@@ -18,11 +18,16 @@ import kommoHandler                 from '../../lib/kommo-webhook.js';
 
 export const config = { api: { bodyParser: true } };
 
-// ─── Límites por plan ────────────────────────────────────────────────────────
+// ─── Límites por plan (fuente de verdad para activación de pagos) ────────────
 const PLAN_LIMITS = {
-  starter:    { max_employees: 1,        max_verifications_month: 200,    max_bank_accounts: 1 },
-  business:   { max_employees: 20,       max_verifications_month: 1000,   max_bank_accounts: 3 },
-  enterprise: { max_employees: 999999,   max_verifications_month: 999999, max_bank_accounts: 999999 },
+  basico:      { max_employees: 1,  max_verifications_month: 300,   max_bank_accounts: 1 },
+  estandar:    { max_employees: 2,  max_verifications_month: 800,   max_bank_accounts: 2 },
+  pro:         { max_employees: 5,  max_verifications_month: 2500,  max_bank_accounts: 4 },
+  empresarial: { max_employees: 10, max_verifications_month: 10000, max_bank_accounts: 8 },
+  // compat nombres anteriores
+  starter:     { max_employees: 1,  max_verifications_month: 300,   max_bank_accounts: 1 },
+  business:    { max_employees: 2,  max_verifications_month: 800,   max_bank_accounts: 2 },
+  enterprise:  { max_employees: 10, max_verifications_month: 10000, max_bank_accounts: 8 },
 };
 
 // ─── Wompi ───────────────────────────────────────────────────────────────────
