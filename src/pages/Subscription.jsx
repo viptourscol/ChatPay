@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, Rocket, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw, Calendar, CreditCard, Bell } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, Rocket, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw, Calendar, CreditCard, Bell, Hotel, ChevronRight, MessageCircle } from 'lucide-react';
 
 const PLANS = {
   free: {
@@ -31,19 +31,33 @@ const PLANS = {
     color: 'violet',
     icon: Rocket,
     features: ['15 empleados activos', '2.500 verificaciones / mes', '5 cuentas bancarias', '2 números admin · 50 alertas WA/mes', 'Egresos Gmail + Nómina', 'Soporte prioritario 8h']
-  },
-  empresarial: {
+  },  empresarial: {
     label: 'Empresarial',
     price: 349900,
     color: 'purple',
     icon: Crown,
-    features: ['Empleados ilimitados', 'Verificaciones ilimitadas', 'Cuentas bancarias ilimitadas', '2 números admin · alertas ilimitadas', 'Egresos Gmail + Nómina + CRM', 'Multi-sede · Soporte WhatsApp directo']
+    features: [
+      'Hasta 50 empleados activos',
+      '10.000 verificaciones / mes',
+      '10 cuentas bancarias',
+      '3 números admin · 200 alertas WA/mes',
+      'Egresos Gmail + Nómina + CRM',
+      '1 sede · Soporte WhatsApp directo',
+    ],
+    warning: '⚠️ Plan para una sola sede. ¿Tienes múltiples locales? El Plan Cadena te ahorra hasta un 43%.',
   },
   // compatibilidad nombres anteriores
   starter:    { label: 'Starter',    price: 49900,  color: 'blue',   icon: Zap,      features: [] },
   business:   { label: 'Business',   price: 99900,  color: 'emerald',icon: Building2,features: [] },
   enterprise: { label: 'Enterprise', price: 349900, color: 'purple', icon: Crown,    features: [] },
 };
+
+// Tiers de precio del plan Cadena
+const CADENA_TIERS = [
+  { min: 5,  max: 9,    price: 289900, discount: 17 },
+  { min: 10, max: 19,   price: 249900, discount: 28 },
+  { min: 20, max: null, price: 199900, discount: 43 },
+];
 
 const STATUS_LABELS = {
   trial:     { label: 'Período de prueba',   color: 'amber',   icon: Clock },
@@ -349,9 +363,7 @@ export default function Subscription() {
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        </div>        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {Object.entries(PLANS).filter(([key]) => ['basico','estandar','pro','empresarial'].includes(key)).map(([key, p]) => {
             const Icon = p.icon;
             const isCurrent = key === sub?.plan;
@@ -381,7 +393,7 @@ export default function Subscription() {
                     Ahorra {fmt(p.price * months - total)} ({discount}% descuento)
                   </p>
                 )}
-                <ul className="space-y-2 mb-5">
+                <ul className="space-y-2 mb-4">
                   {p.features.map(f => (
                     <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
                       <CheckCircle2 size={13} className={`text-${p.color}-500 shrink-0`} />
@@ -389,6 +401,13 @@ export default function Subscription() {
                     </li>
                   ))}
                 </ul>
+                {/* Alerta de 1 sola sede para plan empresarial */}
+                {key === 'empresarial' && p.warning && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-2 mb-4">
+                    <AlertTriangle size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-700 leading-snug">{p.warning}</p>
+                  </div>
+                )}
                 <button
                   disabled={isPaying}
                   onClick={() => payMutation.mutate({ plan: key, months })}
@@ -409,6 +428,78 @@ export default function Subscription() {
               </div>
             );
           })}
+        </div>
+
+        {/* ─── Plan Cadena / Red ─── */}
+        <div id="plan-cadena" className="mt-6 card border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50 relative overflow-hidden">
+          {/* Badge destacado */}
+          <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-amber-400 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+            <Hotel size={12} /> MULTI-SEDE
+          </div>
+
+          <div className="flex items-center gap-2 mb-1">
+            <Hotel size={18} className="text-amber-600" />
+            <span className="font-bold text-xl text-slate-800">Cadena / Red</span>
+          </div>
+          <p className="text-sm text-slate-500 mb-4">Para cadenas hoteleras, franquicias y grupos empresariales</p>
+
+          {/* Precio escalonado */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            {CADENA_TIERS.map((tier) => (
+              <div key={tier.min} className="bg-white/70 rounded-xl p-3 border border-amber-200 text-center">
+                <p className="text-xs text-slate-500 font-medium mb-1">
+                  {tier.max ? `${tier.min}–${tier.max} sedes` : `${tier.min}+ sedes`}
+                </p>
+                <p className="text-lg font-bold text-slate-800">{fmt(tier.price)}<span className="text-xs font-normal text-slate-400">/sede·mes</span></p>
+                <span className="inline-block mt-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  -{tier.discount}% vs individual
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Features en 2 columnas */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mb-5">
+            {[
+              'Todo el plan Empresarial en cada sede',
+              'Admin independiente por sede',
+              'Dashboard maestro del grupo',
+              'Reportes consolidados de la red',
+              'Facturación única al grupo',
+              'Descuento automático por volumen',
+              'Onboarding dedicado para toda la red',
+              'Account manager asignado',
+              'Soporte WhatsApp directo · SLA < 4h',
+            ].map(f => (
+              <div key={f} className="flex items-center gap-2 text-sm text-slate-700">
+                <CheckCircle2 size={13} className="text-amber-500 shrink-0" />
+                {f}
+              </div>
+            ))}
+          </div>
+
+          {/* Ejemplo de ahorro */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-5 flex items-center gap-3">
+            <span className="text-2xl">💰</span>
+            <div>
+              <p className="text-sm font-semibold text-emerald-800">Ejemplo real: 20 hoteles</p>
+              <p className="text-xs text-emerald-700">
+                Individual: <span className="line-through text-slate-400">{fmt(349900 * 20)}/mes</span>
+                {' '}→ Con plan Cadena: <strong>{fmt(199900 * 20)}/mes</strong>
+                {' '}— <span className="font-bold">ahorras {fmt((349900 - 199900) * 20)}/mes</span>
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="https://wa.me/573000000000?text=Hola%2C%20quiero%20información%20del%20Plan%20Cadena%20para%20mi%20grupo%20de%20hoteles"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white transition shadow-md"
+          >
+            <MessageCircle size={16} /> Solicitar oferta personalizada <ChevronRight size={15} />
+          </a>
+          <p className="text-center text-xs text-slate-400 mt-2">Te contactamos en menos de 24 horas</p>
         </div>
 
         {/* Badge Wompi */}
