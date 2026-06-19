@@ -7,7 +7,7 @@
 import { requireUser } from '../../lib/auth.js';
 import { requireCompany } from '../../lib/getCompany.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
-import { getMonthlyVerificationCount } from '../../lib/subscription.js';
+import { getMonthlyVerificationCount, PLANS } from '../../lib/subscription.js';
 
 /* ─── Precios y descuentos ────────────────────────────── */
 const BASE_PRICES = { starter: 49900, business: 129900, enterprise: 299900 };
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
       supabaseAdmin.from('employees').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_active', true),
       supabaseAdmin.from('company_bank_accounts').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
       supabaseAdmin.from('subscription_payments').select('id, plan, months, amount_cop, status, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(10),
-    ]);
+    ]);    const planDef = PLANS[company.plan];
 
     return res.json({
       plan:                    company.plan || 'starter',
@@ -100,9 +100,9 @@ export default async function handler(req, res) {
       trial_ends_at:           company.trial_ends_at || null,
       subscription_expires_at: company.subscription_expires_at || null,
       is_active:               company.is_active,
-      max_employees:           company.max_employees || 1,
-      max_verifications_month: company.max_verifications_month || 200,
-      max_bank_accounts:       company.max_bank_accounts || 1,
+      max_employees:           planDef?.maxEmployees           ?? company.max_employees           ?? 1,
+      max_verifications_month: planDef?.maxVerificationsMonth  ?? company.max_verifications_month ?? 200,
+      max_bank_accounts:       planDef?.maxBankAccounts        ?? company.max_bank_accounts       ?? 1,
       verifications_used,
       employees_count:         employees_count || 0,
       bank_accounts_count:     bank_accounts_count || 0,

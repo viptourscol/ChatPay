@@ -86,9 +86,9 @@ export default async function handler(req, res) {
       .from('employees')
       .select('*')
       .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ error: error.message });
-    return res.json({ items: data, max_employees: company.max_employees ?? null });
+      .order('created_at', { ascending: false });    if (error) return res.status(500).json({ error: error.message });
+    const effectiveMax = PLANS[company.plan]?.maxEmployees ?? company.max_employees ?? null;
+    return res.json({ items: data, max_employees: effectiveMax });
   }
 
   if (req.method === 'POST') {
