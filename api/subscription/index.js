@@ -10,9 +10,26 @@ import { supabaseAdmin } from '../../lib/supabase.js';
 import { getMonthlyVerificationCount, PLANS } from '../../lib/subscription.js';
 
 /* ─── Precios y descuentos ────────────────────────────── */
-const BASE_PRICES = { starter: 49900, business: 129900, enterprise: 299900 };
+const BASE_PRICES = {
+  basico:      49900,
+  estandar:    99900,
+  pro:         199900,
+  empresarial: 349900,
+  // compat nombres anteriores
+  starter:     49900,
+  business:    99900,
+  enterprise:  349900,
+};
 const DISCOUNTS   = { 1: 0, 3: 5, 6: 10, 12: 15 };
-const PLAN_LABELS = { starter: 'Starter', business: 'Business', enterprise: 'Enterprise' };
+const PLAN_LABELS = {
+  basico:      'Básico',
+  estandar:    'Estándar',
+  pro:         'Pro',
+  empresarial: 'Empresarial',
+  starter:     'Básico',
+  business:    'Estándar',
+  enterprise:  'Empresarial',
+};
 
 /**
  * Crea un link de pago en Wompi.
