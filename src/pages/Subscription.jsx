@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, Rocket, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw, Calendar, CreditCard, Bell, Hotel, ChevronRight, MessageCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Zap, Crown, Building2, Rocket, AlertTriangle, ExternalLink, Loader2, PartyPopper, RefreshCw, Calendar, CreditCard, Bell, Hotel, ChevronRight, MessageCircle, TrendingDown } from 'lucide-react';
 
 const PLANS = {
   free: {
@@ -44,7 +44,7 @@ const PLANS = {
       'Egresos Gmail + Nómina + CRM',
       '1 sede · Soporte WhatsApp directo',
     ],
-    warning: '⚠️ Plan para una sola sede. ¿Tienes múltiples locales? El Plan Cadena te ahorra hasta un 43%.',
+    warning: '1 sede. Para múltiples locales el Plan Cadena ahorra hasta 43%.',
   },
   // compatibilidad nombres anteriores
   starter:    { label: 'Starter',    price: 49900,  color: 'blue',   icon: Zap,      features: [] },
@@ -476,11 +476,11 @@ export default function Subscription() {
                 {f}
               </div>
             ))}
-          </div>
-
-          {/* Ejemplo de ahorro */}
+          </div>          {/* Ejemplo de ahorro */}
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-5 flex items-center gap-3">
-            <span className="text-2xl">💰</span>
+            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+              <TrendingDown size={18} className="text-emerald-600" />
+            </div>
             <div>
               <p className="text-sm font-semibold text-emerald-800">Ejemplo real: 20 hoteles</p>
               <p className="text-xs text-emerald-700">
