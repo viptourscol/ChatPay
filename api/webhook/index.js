@@ -414,30 +414,31 @@ async function handleSms(req, res) {
 
   let transactionId = null;
   let matchStatus = 'pending_match';
-
   // Match por referencia exacta
   if (parsed.reference) {
     const { data: txByRef } = await supabaseAdmin
       .from('transactions')
-      .select('id')
+      .select('id, source')
       .eq('company_id', companyId)
       .eq('reference_number', parsed.reference)
       .maybeSingle();
     if (txByRef) { transactionId = txByRef.id; matchStatus = 'linked'; }
   }
 
-  // Match por monto ±15 min
+  // Match por monto en ventana de ±2 horas (cubre email que llega antes o después del SMS)
   if (!transactionId && parsed.amount) {
     const d = new Date(parsed.date);
-    const lo = new Date(d.getTime() - 15 * 60 * 1000).toISOString();
-    const hi = new Date(d.getTime() + 15 * 60 * 1000).toISOString();
+    const lo = new Date(d.getTime() - 2 * 60 * 60 * 1000).toISOString();
+    const hi = new Date(d.getTime() + 2 * 60 * 60 * 1000).toISOString();
     const { data: txByAmount } = await supabaseAdmin
       .from('transactions')
-      .select('id')
+      .select('id, source')
       .eq('company_id', companyId)
       .eq('amount', parsed.amount)
       .gte('transaction_date', lo)
       .lte('transaction_date', hi)
+      .order('transaction_date', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (txByAmount) { transactionId = txByAmount.id; matchStatus = 'linked'; }
   }
