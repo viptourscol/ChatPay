@@ -365,10 +365,13 @@ async function handleWhatsApp(req, res) {
 // ─── SMS Backup ───────────────────────────────────────────────────────────────
 async function handleSms(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return res.status(401).json({ error: 'Token requerido' });
+
+  // Validar formato UUID antes de hacer la query (evita error 500 de Supabase)
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(token)) return res.status(401).json({ error: 'Token inválido' });
 
   // Soportar body JSON o texto plano (iOS Atajos modo "Archivo")
   let bodyText, bodySource, bodyReceivedAt;
