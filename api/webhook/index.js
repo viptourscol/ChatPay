@@ -336,7 +336,7 @@ async function handleWhatsApp(req, res) {
         }
       }
     } catch (notifErr) {
-      console.error('[webhook] notif-admin error:', notifErr.message);
+      console.error('[webhook] notif-admin error:', notifErr.message, notifErr.stack || '');
     }
 
     await supabaseAdmin.from('verifications').insert({
