@@ -298,11 +298,19 @@ export default function Egresos() {
                 <td className="px-4 py-3">{e.description}</td>
                 <td className="px-4 py-3 text-slate-500">{e.recipient || '—'}</td>
                 <td className="px-4 py-3">
-                  {e.category && (
-                    <span className={`badge ${CATEGORY_COLORS[e.category] || 'bg-slate-100 text-slate-700'}`}>
-                      {e.category}
-                    </span>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    {e.category && (
+                      <span className={`badge ${CATEGORY_COLORS[e.category] || 'bg-slate-100 text-slate-700'}`}>
+                        {e.category}
+                      </span>
+                    )}
+                    {e.source === 'sms' && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100">📱 SMS</span>
+                    )}
+                    {e.source === 'gmail' && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-600 border border-green-100">📧 Email</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-slate-500 capitalize">{e.method}</td>
                 <td className="px-4 py-3 text-right font-semibold text-red-600">{fmtMoney(e.amount)}</td>
@@ -335,6 +343,10 @@ export default function Egresos() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-slate-800 truncate">{e.description}</div>
                 <div className="text-xs text-slate-400 mt-0.5">{fmtDate(e.payment_date)}{e.recipient && ` · ${e.recipient}`}</div>
+                <div className="flex gap-1 mt-1">
+                  {e.source === 'sms' && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100">📱 SMS</span>}
+                  {e.source === 'gmail' && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-600 border border-green-100">📧 Email</span>}
+                </div>
               </div>
               <div className="text-right shrink-0">
                 <div className="font-bold text-red-600 text-lg">{fmtMoney(e.amount)}</div>
