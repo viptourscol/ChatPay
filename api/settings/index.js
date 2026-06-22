@@ -60,13 +60,24 @@ export default async function handler(req, res) {
     // notification_whatsapp es un array jsonb; guardar [] si viene vacío/nulo
     const rawContacts = Array.isArray(notification_whatsapp) ? notification_whatsapp : [];
 
-    // Límite de números de notificación según plan
-    const { data: planData } = await supabaseAdmin.from('companies').select('plan').eq('user_id', user.id).maybeSingle();
+    // Resolver qué empresa actualizar (impersonación o propia)
+    let targetId = null;
+    if (impersonating) {
+      // Super admin editando empresa impersonada → actualizar por ID directamente
+      targetId = impersonateId;
+    }
+
+    // Obtener el plan de la empresa objetivo para calcular límite de WhatsApp
+    const planQuery = targetId
+      ? supabaseAdmin.from('companies').select('id, plan').eq('id', targetId).maybeSingle()
+      : supabaseAdmin.from('companies').select('id, plan').eq('user_id', user.id).maybeSingle();
+    const { data: planData } = await planQuery;
     const plan = planData?.plan || 'basico';
+    if (!targetId) targetId = planData?.id || null;
+
     const PLAN_MAX = { free: 1, basico: 0, estandar: 1, pro: 2, empresarial: 2, enterprise: 2, business: 1 };
     const maxNums = PLAN_MAX[plan] ?? 0;
-    // Respetar todos los números (incluso deshabilitados) pero limitar los activos al máximo del plan
-    const sliced = rawContacts.slice(0, Math.max(maxNums, rawContacts.length)); // conservar todos los números
+    const sliced = rawContacts.slice(0, Math.max(maxNums, rawContacts.length));
     let activeAllowed = maxNums;
     const notifContacts = sliced.map(c => {
       if (c.active && activeAllowed > 0) { activeAllowed--; return c; }
@@ -74,18 +85,12 @@ export default async function handler(req, res) {
       return c;
     });
 
-    const { data: existing } = await supabaseAdmin
-      .from('companies')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
     let result, error;
-    if (existing?.id) {
+    if (targetId) {
       ({ data: result, error } = await supabaseAdmin
         .from('companies')
         .update({ name, nit, tax_regime, address, phone, bancolombia_email: bancolombia_email || null, notification_whatsapp: notifContacts })
-        .eq('user_id', user.id)
+        .eq('id', targetId)
         .select()
         .single());
     } else {
