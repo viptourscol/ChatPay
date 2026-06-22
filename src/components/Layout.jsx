@@ -56,10 +56,7 @@ export default function Layout() {
   // También interceptar errores 402 globalmente via evento personalizado
   useEffect(() => {
     function onPaymentRequired(e) {
-      // setTimeout para diferir fuera del ciclo de render y evitar React error #300
-      setTimeout(() => {
-        setSuspended(prev => prev || { company: e.detail?.company || null });
-      }, 0);
+      setSuspended({ company: e.detail?.company || null });
     }
     window.addEventListener('chatpay:payment_required', onPaymentRequired);
     return () => window.removeEventListener('chatpay:payment_required', onPaymentRequired);

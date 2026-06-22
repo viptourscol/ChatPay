@@ -2,6 +2,10 @@ import { supabase } from './supabase.js';
 
 const STORAGE_KEY = 'chatpay_impersonating';
 
+// Flag de módulo: solo disparar el evento 402 una vez por sesión de navegación
+// Se resetea cuando el usuario se loguea de nuevo (recarga de página)
+let _paymentRequiredFired = false;
+
 async function authHeader() {
   const { data } = await supabase.auth.getSession();
   const headers = data.session?.access_token
@@ -40,8 +44,11 @@ export async function api(path, { method = 'GET', body, query } = {}) {
   if (res.status === 402) {
     const data = await res.json().catch(() => ({}));
     const err  = new PaymentRequiredError(data);
-    // Emitir evento global para que Layout lo intercepte aunque venga desde cualquier componente
-    window.dispatchEvent(new CustomEvent('chatpay:payment_required', { detail: data }));
+    // Emitir evento global UNA SOLA VEZ para evitar múltiples setSuspended simultáneos
+    if (!_paymentRequiredFired) {
+      _paymentRequiredFired = true;
+      window.dispatchEvent(new CustomEvent('chatpay:payment_required', { detail: data }));
+    }
     throw err;
   }
   if (!res.ok) {
