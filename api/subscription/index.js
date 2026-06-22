@@ -5,7 +5,7 @@
  * POST /api/subscription        — crear link de pago en Wompi
  */
 import { requireUser } from '../../lib/auth.js';
-import { requireCompany } from '../../lib/getCompany.js';
+import { requireCompany, getCompany } from '../../lib/getCompany.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { getMonthlyVerificationCount, PLANS } from '../../lib/subscription.js';
 
@@ -100,8 +100,10 @@ export default async function handler(req, res) {
 
   /* ── GET: estado de suscripción ─────────────────────── */
   if (req.method === 'GET') {
-    const company = await requireCompany(user.id, res);
-    if (!company) return;
+    // Usar getCompany (no requireCompany) para que funcione aunque esté suspendida
+    // El PaymentWall necesita este endpoint para mostrar estado y crear link de pago
+    const company = await getCompany(user.id);
+    if (!company) return res.status(404).json({ error: 'Empresa no encontrada' });
 
     const companyId = company.id;
     const [verifications_used, { count: employees_count }, { count: bank_accounts_count }, { data: payments }] = await Promise.all([
