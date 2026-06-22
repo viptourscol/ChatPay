@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import {
   MessageSquare, CheckCircle2, XCircle, Filter,
-  ChevronLeft, ChevronRight, RefreshCw, Building2
+  ChevronLeft, ChevronRight, RefreshCw, Building2, X, Check
 } from 'lucide-react';
 
 const TYPE_LABELS = {
@@ -28,10 +28,111 @@ const TYPE_COLORS = {
   other:                 'bg-slate-100 text-slate-500',
 };
 
+// ─── Modal estilo WhatsApp ────────────────────────────────────────────────────
+function WhatsAppModal({ log, onClose }) {
+  if (!log) return null;
+
+  const time = new Date(log.sent_at).toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+
+  // Convertir *texto* a <strong> y _texto_ a <em>
+  function formatWaText(text) {
+    if (!text) return '';
+    return text
+      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+      .replace(/_(.*?)_/g, '<em>$1</em>')
+      .replace(/\n/g, '<br/>');
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+
+        {/* Header estilo WhatsApp */}
+        <div className="bg-[#075e54] text-white px-4 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-[#128c7e] flex items-center justify-center shrink-0">
+            <MessageSquare size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm truncate">ChatPay Bot</div>
+            <div className="text-xs text-green-200 truncate">→ {log.recipient}</div>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Fondo tipo chat WhatsApp */}
+        <div
+          className="px-4 py-5 min-h-[200px] max-h-[60vh] overflow-y-auto"
+          style={{ background: '#e5ddd5 url("data:image/svg+xml,%3Csvg width=\'300\' height=\'300\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E")' }}
+        >
+          {/* Burbuja saliente (derecha) */}
+          <div className="flex justify-end">
+            <div className="max-w-[85%]">
+              <div className="bg-[#dcf8c6] rounded-2xl rounded-tr-sm px-3 py-2 shadow-sm relative">
+                {log.message_text ? (
+                  <p
+                    className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{ __html: formatWaText(log.message_text) }}
+                  />
+                ) : (
+                  <p className="text-sm text-slate-400 italic">[Mensaje de plantilla — sin texto guardado]</p>
+                )}
+                {/* Timestamp + ticks */}
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className="text-[10px] text-slate-400">{time}</span>
+                  {log.status === 'sent'
+                    ? <span className="text-[#4fc3f7]"><Check size={13} strokeWidth={3} /></span>
+                    : <XCircle size={12} className="text-red-400" />
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Si falló, mostrar error */}
+          {log.status === 'failed' && log.error_message && (
+            <div className="mt-3 flex justify-end">
+              <div className="max-w-[85%] bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                <p className="text-xs text-red-600 font-medium mb-0.5">⚠ Error de envío</p>
+                <p className="text-xs text-red-500 break-all">{log.error_message}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer con metadata */}
+        <div className="border-t border-slate-100 px-4 py-3 space-y-1.5 bg-slate-50">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">Empresa</span>
+            <span className="font-medium text-slate-700">{log.companies?.name || '—'}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">Tipo</span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[log.message_type] || TYPE_COLORS.other}`}>
+              {TYPE_LABELS[log.message_type] || log.message_type}
+            </span>
+          </div>
+          {log.meta_message_id && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Meta ID</span>
+              <span className="font-mono text-slate-400 text-[10px]">{log.meta_message_id}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MessageLogs() {
   const [filters, setFilters] = useState({ companyId: '', status: '', type: '' });
   const [page, setPage] = useState(1);
-  const [expanded, setExpanded] = useState(null);
+  const [selectedLog, setSelectedLog] = useState(null);
 
   const params = new URLSearchParams({ action: 'message-logs', page });
   if (filters.companyId) params.set('companyId', filters.companyId);
@@ -60,6 +161,7 @@ export default function MessageLogs() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <WhatsAppModal log={selectedLog} onClose={() => setSelectedLog(null)} />
       <div className="max-w-6xl mx-auto space-y-6">
 
         {/* Header */}
@@ -145,7 +247,7 @@ export default function MessageLogs() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {logs.map(log => (
-                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={log.id} onClick={() => setSelectedLog(log)} className="hover:bg-slate-50 transition-colors cursor-pointer">
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                         {new Date(log.sent_at).toLocaleString('es-CO', {
                           timeZone: 'America/Bogota',
@@ -173,16 +275,9 @@ export default function MessageLogs() {
                       </td>
                       <td className="px-4 py-3 max-w-xs">
                         {log.message_text ? (
-                          <div>
-                            <p className="text-slate-600 text-xs truncate max-w-[240px]" title={log.message_text}>
-                              {log.message_text}
-                            </p>
-                            {log.status === 'failed' && log.error_message && (
-                              <p className="text-red-500 text-xs mt-0.5 truncate max-w-[240px]" title={log.error_message}>
-                                ⚠ {log.error_message}
-                              </p>
-                            )}
-                          </div>
+                          <p className="text-slate-600 text-xs truncate max-w-[240px]" title={log.message_text}>
+                            {log.message_text}
+                          </p>
                         ) : <span className="text-slate-300 text-xs">—</span>}
                       </td>
                     </tr>
@@ -193,7 +288,7 @@ export default function MessageLogs() {
               {/* Mobile */}
               <div className="md:hidden divide-y divide-slate-100">
                 {logs.map(log => (
-                  <div key={log.id} className="px-4 py-3 space-y-1">
+                  <div key={log.id} onClick={() => setSelectedLog(log)} className="px-4 py-3 space-y-1 cursor-pointer hover:bg-slate-50 active:bg-slate-100 transition-colors">
                     <div className="flex items-center justify-between gap-2">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[log.message_type] || TYPE_COLORS.other}`}>
                         {TYPE_LABELS[log.message_type] || log.message_type}
@@ -208,14 +303,7 @@ export default function MessageLogs() {
                       {' · '}{log.companies?.name || 'Sin empresa'}
                     </div>
                     <div className="font-mono text-xs text-slate-600">{log.recipient}</div>
-                    {log.message_text && (
-                      <button className="text-xs text-slate-400 underline" onClick={() => setExpanded(expanded === log.id ? null : log.id)}>
-                        {expanded === log.id ? 'Ocultar' : 'Ver mensaje'}
-                      </button>
-                    )}
-                    {expanded === log.id && (
-                      <pre className="text-xs bg-slate-50 rounded p-2 whitespace-pre-wrap text-slate-600 mt-1">{log.message_text}</pre>
-                    )}
+                    <p className="text-xs text-slate-400 truncate">{log.message_text || '—'}</p>
                     {log.status === 'failed' && log.error_message && (
                       <p className="text-red-500 text-xs">⚠ {log.error_message}</p>
                     )}
