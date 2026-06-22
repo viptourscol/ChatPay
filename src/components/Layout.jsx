@@ -64,12 +64,24 @@ export default function Layout() {
 
   if (suspended) {
     const handleSignOut = async () => { await supabase.auth.signOut(); navigate('/login', { replace: true }); };
-    // Si el super admin está impersonando, permitir salir de la impersonación en lugar del PaymentWall
+    // Si el super admin está impersonando, mostrar PaymentWall pero con botón para salir de impersonación
     if (impersonating) {
-      // Solo mostrar banner, no bloquear con PaymentWall
-    } else {
-      return <PaymentWall companyInfo={suspended.company} onSignOut={handleSignOut} />;
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 p-6">
+          <div className="bg-orange-50 border border-orange-200 rounded-xl px-5 py-4 text-orange-800 text-sm max-w-md text-center">
+            <p className="font-semibold mb-1">Empresa con suscripción vencida</p>
+            <p className="text-xs opacity-80">La empresa <strong>{impersonating.name}</strong> tiene su suscripción suspendida o vencida.</p>
+          </div>
+          <button
+            onClick={() => { stopImpersonating(); navigate('/dashboard', { replace: true }); }}
+            className="btn btn-primary"
+          >
+            ← Salir de la empresa y volver a VIP Tours Col
+          </button>
+        </div>
+      );
     }
+    return <PaymentWall companyInfo={suspended.company} onSignOut={handleSignOut} />;
   }
 
   const openCompanyModal = async () => {
