@@ -458,47 +458,76 @@ function TabEmpresa() {
 
 // ─── Tab: Usuarios ───────────────────────────────────────────────
 function TabUsuarios() {
-  const [user, setUser] = useState(null);
-  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const { impersonating } = useImpersonation();
+  const [ownUser, setOwnUser] = useState(null);
+  const [pwForm, setPwForm] = useState({ next: '', confirm: '' });
   const [pwMsg, setPwMsg] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  supabase.auth.getUser().then(({ data }) => { if (!user) setUser(data.user); });
+  // Info del usuario propio (siempre lo cargamos para el caso sin impersonación)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setOwnUser(data.user));
+  }, []);
+
+  // Info del usuario de la empresa impersonada
+  const { data: impersonatedUser } = useQuery({
+    queryKey: ['admin-user-info', impersonating?.id],
+    queryFn: () => api(`/api/admin/user-info?companyId=${impersonating.id}`),
+    enabled: !!impersonating?.id,
+  });
+
+  const displayUser = impersonating ? impersonatedUser : ownUser;
 
   async function changePassword(e) {
     e.preventDefault();
     if (pwForm.next !== pwForm.confirm) { setPwMsg({ error: true, text: 'Las contraseñas no coinciden' }); return; }
     if (pwForm.next.length < 6) { setPwMsg({ error: true, text: 'La contraseña debe tener al menos 6 caracteres' }); return; }
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password: pwForm.next });
+    let error;
+    if (impersonating) {
+      // Cambiar contraseña del usuario de la empresa via admin API
+      try {
+        await api(`/api/admin/user-info?companyId=${impersonating.id}`, { method: 'PATCH', body: { password: pwForm.next } });
+      } catch (e) {
+        error = { message: e.message };
+      }
+    } else {
+      const result = await supabase.auth.updateUser({ password: pwForm.next });
+      error = result.error;
+    }
     setSaving(false);
     if (error) setPwMsg({ error: true, text: error.message });
-    else { setPwMsg({ error: false, text: 'Contraseña actualizada correctamente' }); setPwForm({ current: '', next: '', confirm: '' }); }
+    else { setPwMsg({ error: false, text: 'Contraseña actualizada correctamente' }); setPwForm({ next: '', confirm: '' }); }
     setTimeout(() => setPwMsg(null), 5000);
   }
 
   return (
     <div className="space-y-8 max-w-lg">
+      {impersonating && (
+        <div className="rounded-lg bg-orange-50 border border-orange-200 px-4 py-2 text-sm text-orange-700">
+          Visualizando cuenta de <strong>{impersonating.name}</strong>
+        </div>
+      )}
       <div>
-        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2"><User size={18} /> Tu cuenta</h2>
+        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2"><User size={18} /> {impersonating ? 'Cuenta de la empresa' : 'Tu cuenta'}</h2>
         <div className="rounded-xl border border-slate-200 p-4 space-y-3">
           <div>
             <div className="text-xs text-slate-500">Correo electrónico</div>
-            <div className="font-medium">{user?.email || '—'}</div>
+            <div className="font-medium">{displayUser?.email || '—'}</div>
           </div>
           <div>
             <div className="text-xs text-slate-500">ID de usuario</div>
-            <div className="font-mono text-xs text-slate-600 break-all">{user?.id || '—'}</div>
+            <div className="font-mono text-xs text-slate-600 break-all">{displayUser?.id || '—'}</div>
           </div>
           <div>
             <div className="text-xs text-slate-500">Cuenta creada</div>
-            <div className="text-sm">{user?.created_at ? new Date(user.created_at).toLocaleDateString('es-CO', { dateStyle: 'long' }) : '—'}</div>
+            <div className="text-sm">{displayUser?.created_at ? new Date(displayUser.created_at).toLocaleDateString('es-CO', { dateStyle: 'long' }) : '—'}</div>
           </div>
         </div>
       </div>
 
       <div>
-        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2"><Lock size={18} /> Cambiar contraseña</h2>
+        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2"><Lock size={18} /> Cambiar contraseña{impersonating ? ' de la empresa' : ''}</h2>
         <form onSubmit={changePassword} className="space-y-3">
           <div>
             <label className="text-sm text-slate-600 mb-1 block">Nueva contraseña</label>
