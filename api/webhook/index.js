@@ -459,21 +459,31 @@ async function handleSms(req, res) {
   }
 
   // Match por monto en ventana de ±2 horas (cubre email que llega antes o después del SMS)
+  // Solo vincula si la transacción NO tiene ya un SMS vinculado (evita que varios SMS idénticos se peguen a la misma)
   if (!transactionId && parsed.amount) {
     const d = new Date(parsed.date);
     const lo = new Date(d.getTime() - 2 * 60 * 60 * 1000).toISOString();
     const hi = new Date(d.getTime() + 2 * 60 * 60 * 1000).toISOString();
-    const { data: txByAmount } = await supabaseAdmin
+    const { data: candidates } = await supabaseAdmin
       .from('transactions')
       .select('id, source')
       .eq('company_id', companyId)
       .eq('amount', parsed.amount)
       .gte('transaction_date', lo)
       .lte('transaction_date', hi)
-      .order('transaction_date', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (txByAmount) { transactionId = txByAmount.id; matchStatus = 'linked'; }
+      .order('transaction_date', { ascending: false });
+
+    if (candidates?.length) {
+      // Obtener IDs de transacciones que ya tienen SMS vinculado
+      const { data: alreadyLinked } = await supabaseAdmin
+        .from('transaction_sms')
+        .select('transaction_id')
+        .in('transaction_id', candidates.map(c => c.id))
+        .not('transaction_id', 'is', null);
+      const linkedIds = new Set((alreadyLinked || []).map(r => r.transaction_id));
+      const free = candidates.find(c => !linkedIds.has(c.id));
+      if (free) { transactionId = free.id; matchStatus = 'linked'; }
+    }
   }
 
   // SMS llegó primero — crear transacción
