@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
+import { useImpersonation } from '../lib/impersonation.jsx';
 import { supabase } from '../lib/supabase.js';
 import { useToast } from '../components/Toast.jsx';
 import {
@@ -233,25 +234,29 @@ function planWhatsappMax(plan) {
 }
 function TabEmpresa() {
   const qc = useQueryClient();
+  const { impersonating } = useImpersonation();
+  const companyKey = impersonating?.id || 'own';
   const { data, isLoading } = useQuery({
-    queryKey: ['settings'],
+    queryKey: ['settings', companyKey],
     queryFn: () => api('/api/settings')
   });
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
-  // Inicializar form cuando lleguen datos
-  if (data && !form) {
-    setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '', bancolombia_email: data.bancolombia_email || '', notification_whatsapp: Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : [] });
-  }
+  // Reinicializar form cuando cambien los datos (cambio de empresa o carga inicial)
+  useEffect(() => {
+    if (data) {
+      setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '', bancolombia_email: data.bancolombia_email || '', notification_whatsapp: Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : [] });
+    }
+  }, [data]);
 
   const mutation = useMutation({
     mutationFn: (body) => api('/api/settings', { method: 'PUT', body }),
     onSuccess: (result) => {
       // Actualizar form con datos guardados para reflejar lo que devolvió el servidor
       setForm({ name: result.name || '', nit: result.nit || '', tax_regime: result.tax_regime || '', address: result.address || '', phone: result.phone || '', bancolombia_email: result.bancolombia_email || '', notification_whatsapp: Array.isArray(result.notification_whatsapp) ? result.notification_whatsapp : [] });
-      qc.invalidateQueries({ queryKey: ['settings'] });
+      qc.invalidateQueries({ queryKey: ['settings', companyKey] });
       setSaved(true);
       setSaveError(null);
       setTimeout(() => setSaved(false), 3000);

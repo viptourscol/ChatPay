@@ -47,7 +47,10 @@ export default async function handler(req, res) {
       return c;
     });
     if (needsUpdate) {
-      await supabaseAdmin.from('companies').update({ notification_whatsapp: adjusted }).eq('user_id', user.id);
+      const updateTarget = impersonating ? { id: impersonateId } : { user_id: user.id };
+      const col = impersonating ? 'id' : 'user_id';
+      const val = impersonating ? impersonateId : user.id;
+      await supabaseAdmin.from('companies').update({ notification_whatsapp: adjusted }).eq(col, val);
       data.notification_whatsapp = adjusted;
     }
 
