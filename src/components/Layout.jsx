@@ -55,7 +55,9 @@ export default function Layout() {
 
   // También interceptar errores 402 globalmente via evento personalizado
   useEffect(() => {
-    function onPaymentRequired(e) { setSuspended({ company: e.detail?.company || null }); }
+    function onPaymentRequired(e) {
+      setSuspended(prev => prev || { company: e.detail?.company || null });
+    }
     window.addEventListener('chatpay:payment_required', onPaymentRequired);
     return () => window.removeEventListener('chatpay:payment_required', onPaymentRequired);
   }, []);
