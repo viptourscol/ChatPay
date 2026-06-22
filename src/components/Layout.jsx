@@ -63,25 +63,8 @@ export default function Layout() {
   }, []);
 
   if (suspended) {
-    const handleSignOut = async () => { await supabase.auth.signOut(); navigate('/login', { replace: true }); };
-    // Si el super admin está impersonando, mostrar PaymentWall pero con botón para salir de impersonación
-    if (impersonating) {
-      return (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 p-6">
-          <div className="bg-orange-50 border border-orange-200 rounded-xl px-5 py-4 text-orange-800 text-sm max-w-md text-center">
-            <p className="font-semibold mb-1">Empresa con suscripción vencida</p>
-            <p className="text-xs opacity-80">La empresa <strong>{impersonating.name}</strong> tiene su suscripción suspendida o vencida.</p>
-          </div>
-          <button
-            onClick={() => { stopImpersonating(); navigate('/dashboard', { replace: true }); }}
-            className="btn btn-primary"
-          >
-            ← Salir de la empresa y volver a VIP Tours Col
-          </button>
-        </div>
-      );
-    }
-    return <PaymentWall companyInfo={suspended.company} onSignOut={handleSignOut} />;
+    // Ya no bloqueamos con PaymentWall — solo guardamos el estado para mostrar banner
+    // El usuario puede seguir navegando y llegar a /suscripcion para pagar
   }
 
   const openCompanyModal = async () => {
@@ -120,6 +103,30 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* Banner de suscripción vencida */}
+      {suspended && !impersonating && (
+        <div className="bg-red-600 text-white text-sm font-medium flex items-center justify-between px-4 py-2 shrink-0 z-50">
+          <span>⚠️ Tu suscripción ha vencido. Algunas funciones están desactivadas.</span>
+          <button
+            onClick={() => navigate('/suscripcion')}
+            className="flex items-center gap-1 rounded px-3 py-0.5 bg-white text-red-600 font-semibold hover:bg-red-50 transition text-xs ml-4 shrink-0"
+          >
+            Renovar ahora →
+          </button>
+        </div>
+      )}
+      {suspended && impersonating && (
+        <div className="bg-red-600 text-white text-sm font-medium flex items-center justify-between px-4 py-2 shrink-0 z-50">
+          <span>⚠️ <strong>{impersonating.name}</strong> tiene la suscripción vencida.</span>
+          <button
+            onClick={() => { stopImpersonating(); navigate('/dashboard', { replace: true }); }}
+            className="flex items-center gap-1 rounded px-3 py-0.5 bg-white text-red-600 font-semibold hover:bg-red-50 transition text-xs ml-4 shrink-0"
+          >
+            <X size={12} /> Salir de empresa
+          </button>
+        </div>
+      )}
+
       {/* Banner de impersonación */}
       {impersonating && (
         <div className="bg-orange-500 text-white text-sm font-medium flex items-center justify-between px-4 py-2 shrink-0 z-50">
