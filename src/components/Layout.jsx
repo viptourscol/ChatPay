@@ -157,8 +157,9 @@ export default function Layout() {
         className={`${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } fixed md:relative md:translate-x-0 z-50 md:z-auto
-          w-64 h-full md:h-auto shrink-0 bg-white border-r border-slate-200
-          flex flex-col transition-transform duration-300 animate-fade-in`}
+          w-64 shrink-0 bg-white border-r border-slate-200
+          flex flex-col transition-transform duration-300 animate-fade-in
+          h-screen md:h-auto overflow-hidden`}
       >
         {/* Logo */}
         <div className="px-5 pt-5 pb-3">
@@ -181,7 +182,7 @@ export default function Layout() {
         </div>
 
         {/* Módulos */}
-        <nav className="flex-1 px-3 pb-3">
+        <nav className="flex-1 px-3 pb-3 overflow-y-auto min-h-0">
           <div className="text-[10px] uppercase tracking-widest text-slate-400 px-2 mb-2 mt-3">Módulos</div>
           <div className="space-y-0.5">
             {MODULES.map((l) => {
@@ -299,7 +300,7 @@ export default function Layout() {
         </nav>
 
         {/* Cerrar sesión + user */}
-        <div className="p-3 border-t border-slate-100">
+        <div className="p-3 border-t border-slate-100 shrink-0 bg-white">
           <button
             onClick={logout}
             className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 transition"
