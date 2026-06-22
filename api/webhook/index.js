@@ -417,7 +417,7 @@ async function handleSms(req, res) {
     const { data: comp } = await supabaseAdmin
       .from('companies').select('user_id').eq('id', companyId).maybeSingle();
     if (comp?.user_id) {
-      await supabaseAdmin.from('egresos').insert({
+      const { error: egresoErr } = await supabaseAdmin.from('egresos').insert({
         user_id: comp.user_id,
         company_id: companyId,
         description: bodyText.slice(0, 120),
@@ -429,6 +429,7 @@ async function handleSms(req, res) {
         source: 'sms',
         notes: `SMS automático. Ref: ${parsed.reference || '—'}`,
       });
+      if (egresoErr) console.error('[sms-webhook] error insertando egreso:', egresoErr.message, egresoErr.details);
     }
     await supabaseAdmin.from('transaction_sms').insert({
       company_id: companyId,
