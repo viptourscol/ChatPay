@@ -21,6 +21,29 @@ export default async function handler(req, res) {
     return userInfoHandler(req, res, user);
   }
 
+  // Subrutas: ?action=message-logs
+  if (req.query.action === 'message-logs') {
+    const { companyId, status, type, page = '1' } = req.query;
+    const pageSize = 50;
+    const offset = (parseInt(page) - 1) * pageSize;
+    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+    let q = supabaseAdmin
+      .from('whatsapp_logs')
+      .select('*, companies(name)', { count: 'exact' })
+      .gte('sent_at', cutoff)
+      .order('sent_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (companyId) q = q.eq('company_id', companyId);
+    if (status)    q = q.eq('status', status);
+    if (type)      q = q.eq('message_type', type);
+
+    const { data, error, count } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ data: data || [], total: count || 0, page: parseInt(page), pageSize });
+  }
+
   // GET /api/admin/companies — listar todas las empresas con stats básicas
   if (req.method === 'GET') {
     const { data, error } = await supabaseAdmin

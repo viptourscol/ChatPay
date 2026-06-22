@@ -132,7 +132,7 @@ async function handleWhatsApp(req, res) {
       .maybeSingle();
 
     if (!employee) {
-      await sendMessage(from, '🚫 Tu número no está autorizado para verificar pagos. Contacta al administrador.');
+      await sendMessage(from, '🚫 Tu número no está autorizado para verificar pagos. Contacta al administrador.', { messageType: 'auth_rejected' });
       await supabaseAdmin.from('verifications').insert({
         whatsapp_message_id: wamid,
         whatsapp_from: fromE164,
@@ -159,7 +159,7 @@ async function handleWhatsApp(req, res) {
         const idx = parseInt(text, 10) - 1;
         const txId = pending.candidate_ids[idx];
         if (!txId) {
-          await sendMessage(from, `Opción inválida. Responde con un número entre 1 y ${pending.candidate_ids.length}.`);
+          await sendMessage(from, `Opción inválida. Responde con un número entre 1 y ${pending.candidate_ids.length}.`, { companyId, messageType: 'disambiguation' });
           return res.status(200).json({ received: true });
         }
         const { data: tx } = await supabaseAdmin.from('transactions').select('*').eq('id', txId).maybeSingle();
@@ -173,7 +173,7 @@ async function handleWhatsApp(req, res) {
           transactionDate: tx?.transaction_date,
           transactionId: tx?.id
         });
-        await sendMessage(from, responseText);
+        await sendMessage(from, responseText, { companyId, messageType: 'verification_response' });
         await supabaseAdmin.from('verifications').insert({
           employee_id: employee.id,
           transaction_id: txId,
@@ -193,7 +193,8 @@ async function handleWhatsApp(req, res) {
 
       await sendMessage(
         from,
-        `Hola ${employee.name} 👋\nEnvíame la *foto del comprobante* de pago para verificarlo.`
+        `Hola ${employee.name} 👋\nEnvíame la *foto del comprobante* de pago para verificarlo.`,
+        { companyId, messageType: 'greeting' }
       );
       return res.status(200).json({ received: true });
     }
@@ -226,7 +227,7 @@ async function handleWhatsApp(req, res) {
     }
 
     if (!extracted?.is_receipt) {
-      await sendMessage(from, `${employee.name}, no parece un comprobante de pago válido. Envía una foto clara del comprobante.`);
+      await sendMessage(from, `${employee.name}, no parece un comprobante de pago válido. Envía una foto clara del comprobante.`, { companyId, messageType: 'verification_response' });
       await supabaseAdmin.from('verifications').insert({
         employee_id: employee.id,
         company_id: companyId,
@@ -269,7 +270,8 @@ async function handleWhatsApp(req, res) {
         return `${i + 1}. ${c.sender_name || 'Sin nombre'} — ${d}`;
       }).join('\n');
       await sendMessage(from,
-        `${employee.name}, encontré ${candidates.length} pagos pendientes de ${fmt}:\n\n${list}\n\n¿Cuál corresponde a este comprobante? Responde con el número.`
+        `${employee.name}, encontré ${candidates.length} pagos pendientes de ${fmt}:\n\n${list}\n\n¿Cuál corresponde a este comprobante? Responde con el número.`,
+        { companyId, messageType: 'disambiguation' }
       );
       return res.status(200).json({ received: true });
     }
@@ -300,7 +302,7 @@ async function handleWhatsApp(req, res) {
     }
 
     const responseText = buildResponseMessage(responseParams);
-    await sendMessage(from, responseText);
+    await sendMessage(from, responseText, { companyId, messageType: 'verification_response' });
 
     try {
       const { data: co } = await supabaseAdmin
@@ -332,7 +334,7 @@ async function handleWhatsApp(req, res) {
             referencia: extracted.reference || null,
             estado:     { real: 'Verificado ✅', duplicate: 'Duplicado ⚠️', fake: 'FALSO ❌', not_found: 'No encontrado ❓', error: 'Error 🚫' }[status] ?? status,
             fecha:      fmtDate,
-          });
+          }, { companyId, messageType: 'payment_notification' });
         }
       }
     } catch (notifErr) {

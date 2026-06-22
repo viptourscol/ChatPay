@@ -100,7 +100,7 @@ export default async function handler(req, res) {
               fecha: data.created_at
                 ? new Date(data.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
                 : '—',
-            });
+            }, { companyId, verificationId: id });
           }
         }
       } catch (alertErr) {
