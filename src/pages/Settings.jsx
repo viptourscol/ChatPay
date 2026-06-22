@@ -529,8 +529,10 @@ const BANKS = ['Bancolombia', 'Nequi', 'Daviplata', 'Davivienda', 'BBVA', 'Banco
 function TabBankAccounts() {
   const qc = useQueryClient();
   const toast = useToast();
+  const { impersonating } = useImpersonation();
+  const companyKey = impersonating?.id || 'own';
   const { data: accounts = [], isLoading } = useQuery({
-    queryKey: ['bank-accounts'],
+    queryKey: ['bank-accounts', companyKey],
     queryFn: () => api('/api/bank-accounts'),
   });
   const [form, setForm] = useState({ label: '', bank_name: 'Bancolombia', bancolombia_email: '' });
@@ -545,7 +547,7 @@ function TabBankAccounts() {
     setAdding(true);
     try {
       await api('/api/bank-accounts', { method: 'POST', body: form });
-      qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+      qc.invalidateQueries({ queryKey: ['bank-accounts', companyKey] });
       setForm({ label: '', bank_name: 'Bancolombia', bancolombia_email: '' });
       toast.success('Cuenta bancaria agregada');
     } catch (e) {
@@ -560,11 +562,8 @@ function TabBankAccounts() {
   const handleDelete = async (id) => {
     setDeletingId(id);
     try {
-      await fetch(`/api/bank-accounts?id=${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }
-      });
-      qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+      await api(`/api/bank-accounts?id=${id}`, { method: 'DELETE' });
+      qc.invalidateQueries({ queryKey: ['bank-accounts', companyKey] });
       toast.success('Cuenta eliminada');
     } catch {
       toast.error('No se pudo eliminar la cuenta');
