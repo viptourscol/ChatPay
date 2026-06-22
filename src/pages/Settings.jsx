@@ -472,7 +472,7 @@ function TabUsuarios() {
   // Info del usuario de la empresa impersonada
   const { data: impersonatedUser } = useQuery({
     queryKey: ['admin-user-info', impersonating?.id],
-    queryFn: () => api(`/api/admin/user-info?companyId=${impersonating.id}`),
+    queryFn: () => api(`/api/admin/companies?action=user-info&companyId=${impersonating.id}`),
     enabled: !!impersonating?.id,
   });
 
@@ -487,7 +487,7 @@ function TabUsuarios() {
     if (impersonating) {
       // Cambiar contraseña del usuario de la empresa via admin API
       try {
-        await api(`/api/admin/user-info?companyId=${impersonating.id}`, { method: 'PATCH', body: { password: pwForm.next } });
+        await api(`/api/admin/companies?action=user-info&companyId=${impersonating.id}`, { method: 'PATCH', body: { password: pwForm.next } });
       } catch (e) {
         error = { message: e.message };
       }
