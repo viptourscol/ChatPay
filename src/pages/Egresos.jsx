@@ -1,9 +1,23 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { ChevronLeft, ChevronRight, TrendingDown, DollarSign, FileText, Pencil, Trash2, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingDown, DollarSign, FileText, Pencil, Trash2, RefreshCw, Mail, MessageSquare } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription.js';
 import FeatureGate from '../components/FeatureGate.jsx';
+
+function SourceBadge({ source }) {
+  if (source === 'sms') return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">
+      <MessageSquare size={9} />SMS
+    </span>
+  );
+  if (source === 'gmail' || source === 'email') return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">
+      <Mail size={9} />Email
+    </span>
+  );
+  return null;
+}
 
 function Pagination({ page, total, pageSize, onChange }) {
   const totalPages = Math.ceil(total / pageSize) || 1;
@@ -304,12 +318,7 @@ export default function Egresos() {
                         {e.category}
                       </span>
                     )}
-                    {e.source === 'sms' && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100">📱 SMS</span>
-                    )}
-                    {e.source === 'gmail' && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-600 border border-green-100">📧 Email</span>
-                    )}
+                    <SourceBadge source={e.source} />
                   </div>
                 </td>
                 <td className="px-4 py-3 text-slate-500 capitalize">{e.method}</td>
@@ -343,10 +352,7 @@ export default function Egresos() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-slate-800 truncate">{e.description}</div>
                 <div className="text-xs text-slate-400 mt-0.5">{fmtDate(e.payment_date)}{e.recipient && ` · ${e.recipient}`}</div>
-                <div className="flex gap-1 mt-1">
-                  {e.source === 'sms' && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100">📱 SMS</span>}
-                  {e.source === 'gmail' && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-600 border border-green-100">📧 Email</span>}
-                </div>
+                <div className="mt-1"><SourceBadge source={e.source} /></div>
               </div>
               <div className="text-right shrink-0">
                 <div className="font-bold text-red-600 text-lg">{fmtMoney(e.amount)}</div>
