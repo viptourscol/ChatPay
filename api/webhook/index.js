@@ -109,6 +109,37 @@ async function handleWhatsApp(req, res) {
   try {
     const entry = req.body?.entry?.[0];
     const change = entry?.changes?.[0]?.value;
+
+    // ── Delivery status updates de Meta (delivered, read, failed, sent) ──────
+    const statuses = change?.statuses;
+    if (statuses?.length) {
+      for (const s of statuses) {
+        const metaId  = s.id;       // wamid del mensaje original
+        const status  = s.status;   // 'sent' | 'delivered' | 'read' | 'failed'
+        if (!metaId) continue;
+
+        // Mapear: 'delivered' → 'delivered', 'read' → 'read', 'failed' → 'failed', 'sent' → mantener como sent
+        const deliveryStatus = ['delivered', 'read', 'failed'].includes(status) ? status : null;
+        if (!deliveryStatus) continue;
+
+        await supabaseAdmin
+          .from('whatsapp_logs')
+          .update({ delivery_status: deliveryStatus })
+          .eq('meta_message_id', metaId);
+
+        if (deliveryStatus === 'failed') {
+          const errCode = s.errors?.[0]?.code;
+          const errTitle = s.errors?.[0]?.title;
+          console.error(`[webhook/status] FAILED wamid=${metaId} code=${errCode} title=${errTitle}`);
+          await supabaseAdmin
+            .from('whatsapp_logs')
+            .update({ status: 'failed', error_message: `${errCode}: ${errTitle}` })
+            .eq('meta_message_id', metaId);
+        }
+      }
+      return res.status(200).json({ received: true });
+    }
+
     const message = change?.messages?.[0];
     if (!message) return res.status(200).json({ received: true });
 

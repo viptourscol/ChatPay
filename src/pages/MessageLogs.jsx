@@ -28,6 +28,15 @@ const TYPE_COLORS = {
   other:                 'bg-slate-100 text-slate-500',
 };
 
+function DeliveryBadge({ status, delivery }) {
+  if (status === 'failed') return <span className="inline-flex items-center gap-1 text-red-600 text-xs"><XCircle size={12} /> Fallido</span>;
+  if (delivery === 'read')      return <span className="inline-flex items-center gap-1 text-[#4fc3f7] text-xs font-medium">✓✓ Leído</span>;
+  if (delivery === 'delivered') return <span className="inline-flex items-center gap-1 text-slate-500 text-xs">✓✓ Entregado</span>;
+  if (delivery === 'failed')    return <span className="inline-flex items-center gap-1 text-red-600 text-xs"><XCircle size={12} /> Fallido (entrega)</span>;
+  // Solo aceptado por Meta, sin confirmación de entrega aún
+  return <span className="inline-flex items-center gap-1 text-green-600 text-xs"><CheckCircle2 size={12} /> Aceptado</span>;
+}
+
 // ─── Modal estilo WhatsApp ────────────────────────────────────────────────────
 function WhatsAppModal({ log, onClose }) {
   if (!log) return null;
@@ -82,12 +91,16 @@ function WhatsAppModal({ log, onClose }) {
                 ) : (
                   <p className="text-sm text-slate-400 italic">[Mensaje de plantilla — sin texto guardado]</p>
                 )}
-                {/* Timestamp + ticks */}
+                {/* Timestamp + ticks estilo WA */}
                 <div className="flex items-center justify-end gap-1 mt-1">
                   <span className="text-[10px] text-slate-400">{time}</span>
-                  {log.status === 'sent'
-                    ? <span className="text-[#4fc3f7]"><Check size={13} strokeWidth={3} /></span>
-                    : <XCircle size={12} className="text-red-400" />
+                  {log.status === 'failed' || log.delivery_status === 'failed'
+                    ? <XCircle size={12} className="text-red-400" />
+                    : log.delivery_status === 'read'
+                      ? <span className="text-[10px] text-[#4fc3f7] font-bold">✓✓</span>
+                      : log.delivery_status === 'delivered'
+                        ? <span className="text-[10px] text-slate-400 font-bold">✓✓</span>
+                        : <Check size={13} className="text-slate-400" strokeWidth={3} />
                   }
                 </div>
               </div>
@@ -110,6 +123,10 @@ function WhatsAppModal({ log, onClose }) {
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500">Empresa</span>
             <span className="font-medium text-slate-700">{log.companies?.name || '—'}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">Entrega</span>
+            <DeliveryBadge status={log.status} delivery={log.delivery_status} />
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500">Tipo</span>
@@ -268,10 +285,7 @@ export default function MessageLogs() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {log.status === 'sent'
-                          ? <span className="inline-flex items-center gap-1 text-green-600 text-xs"><CheckCircle2 size={13} /> Enviado</span>
-                          : <span className="inline-flex items-center gap-1 text-red-600 text-xs"><XCircle size={13} /> Fallido</span>
-                        }
+                        <DeliveryBadge status={log.status} delivery={log.delivery_status} />
                       </td>
                       <td className="px-4 py-3 max-w-xs">
                         {log.message_text ? (
@@ -293,10 +307,7 @@ export default function MessageLogs() {
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[log.message_type] || TYPE_COLORS.other}`}>
                         {TYPE_LABELS[log.message_type] || log.message_type}
                       </span>
-                      {log.status === 'sent'
-                        ? <span className="inline-flex items-center gap-1 text-green-600 text-xs"><CheckCircle2 size={12} /> Enviado</span>
-                        : <span className="inline-flex items-center gap-1 text-red-600 text-xs"><XCircle size={12} /> Fallido</span>
-                      }
+                      <DeliveryBadge status={log.status} delivery={log.delivery_status} />
                     </div>
                     <div className="text-xs text-slate-500">
                       {new Date(log.sent_at).toLocaleString('es-CO', { timeZone: 'America/Bogota', dateStyle: 'short', timeStyle: 'short' })}
