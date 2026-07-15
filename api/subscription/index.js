@@ -9,13 +9,15 @@ import { requireUser } from '../../lib/auth.js';
 import { requireCompany, getCompany } from '../../lib/getCompany.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { getMonthlyVerificationCount, PLANS } from '../../lib/subscription.js';
-import { sendMessage } from '../../lib/whatsapp.js';
-
 /* ─── Lógica de recordatorios de vencimiento ──────────── */
 const PLAN_PRICES_LABEL = {
   basico: '$49.900', estandar: '$99.900', pro: '$199.900', empresarial: '$349.900',
   starter: '$49.900', business: '$99.900', enterprise: '$349.900',
 };
+
+const GRAPH    = 'https://graph.facebook.com/v21.0';
+const WA_TOKEN = () => process.env.WHATSAPP_TOKEN;
+const PHONE_ID = () => process.env.WHATSAPP_PHONE_NUMBER_ID;
 
 function _fmtDate(isoDate) {
   const d = new Date(isoDate);
@@ -30,28 +32,46 @@ function _normalizePhone(phone) {
   return digits || null;
 }
 
-function _buildReminderMessage(stage, { firstName, planLabel, planPrice, expiresAt }) {
-  const date = _fmtDate(expiresAt);
-  if (stage === '1d') return (
-    `Hola ${firstName} 😊\n\n` +
-    `Tu plan de ChatPay vence mañana ${date} 📅.\n` +
-    `Valor del plan: ${planLabel} ${planPrice} 🧾.\n\n` +
-    `Puedes realizar tu pago a través de la pasarela Wompi integrada en la sección *Suscripción* de ChatPay, o mediante la llave Bre-B 💳.\n\n` +
-    `Obtén un descuento especial según el periodo que elijas: *3% trimestral*, *6% semestral* y *20% anual*. ¿Qué opción prefieres?`
-  );
-  if (stage === '0d') return (
-    `⚠️ Hola ${firstName}, tu plan de ChatPay vence *hoy* 🚨.\n\n` +
-    `Valor del plan: ${planLabel} ${planPrice}\n\n` +
-    `Para evitar interrupciones en el servicio, realiza tu pago lo antes posible en la sección *Suscripción* de ChatPay.\n\n` +
-    `Recuerda que puedes obtener hasta un *20% de descuento* pagando anual 💡.`
-  );
-  if (stage === 'post') return (
-    `Hola, ¿cómo estás? 👋\n\n` +
-    `Te recuerdo que está pendiente la renovación de tu plan para que sigas contando con la confirmación de transferencias y la protección frente a comprobantes falsos sin interrupciones.\n\n` +
-    `Apenas hagas el pago, compártenos el comprobante por este medio para mantener tu cuenta al día. ¿Te ayudo con algo?\n\n` +
-    `⚠️ Tu plan ha sido suspendido automáticamente. Para reactivar el servicio, por favor contáctanos.`
-  );
-  return null;
+/**
+ * Envía un mensaje usando plantilla aprobada de WhatsApp.
+ * stage: '1d' | '0d' | 'post'
+ */
+async function _sendReminderTemplate(to, stage, { firstName, planLabel, planPrice, expiresAt }) {
+  const TEMPLATES = {
+    '1d':   { name: 'recordatorio_plan_1d',   params: [firstName, _fmtDate(expiresAt), planLabel, planPrice] },
+    '0d':   { name: 'recordatorio_plan_0d',   params: [firstName, planLabel, planPrice] },
+    'post': { name: 'recordatorio_plan_post', params: [] },
+  };
+  const tpl = TEMPLATES[stage];
+  if (!tpl) throw new Error(`Stage desconocido: ${stage}`);
+
+  const body = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'template',
+    template: {
+      name: tpl.name,
+      language: { code: 'es_CO' },
+      ...(tpl.params.length > 0 && {
+        components: [{
+          type: 'body',
+          parameters: tpl.params.map(p => ({ type: 'text', text: String(p || '') })),
+        }],
+      }),
+    },
+  };
+
+  const res = await fetch(`${GRAPH}/${PHONE_ID()}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${WA_TOKEN()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`WhatsApp template error ${res.status}: ${err}`);
+  }
+  return res.json();
 }
 
 async function handleCronReminders(req, res) {
@@ -103,15 +123,14 @@ async function handleCronReminders(req, res) {
       if (fullName) firstName = fullName.split(' ')[0];
     } catch { /* usa nombre empresa como fallback */ }
 
-    const planLabel = PLAN_LABELS[company.plan] || company.plan || 'Básico';
-    const planPrice = PLAN_PRICES_LABEL[company.plan] || '';
-    const message   = _buildReminderMessage(stage, { firstName, planLabel, planPrice, expiresAt: company.subscription_expires_at });
-    if (!message) { results.push({ company: company.name, stage, skipped: 'no message' }); continue; }
+    const planLabel  = PLAN_LABELS[company.plan] || company.plan || 'Básico';
+    const planPrice  = PLAN_PRICES_LABEL[company.plan] || '';
+    const tplParams  = { firstName, planLabel, planPrice, expiresAt: company.subscription_expires_at };
 
-    if (isTest) { results.push({ company: company.name, stage, phone, message, test: true }); continue; }
+    if (isTest) { results.push({ company: company.name, stage, phone, template: `recordatorio_plan_${stage}`, params: tplParams, test: true }); continue; }
 
     try {
-      await sendMessage(phone, message, { companyId: company.id, messageType: `subscription_reminder_${stage}` });
+      await _sendReminderTemplate(phone, stage, tplParams);
       await supabaseAdmin.from('companies').update({ subscription_reminder_sent: { ...sent, [stage]: todayStr } }).eq('id', company.id);
       results.push({ company: company.name, stage, phone, status: 'sent' });
       console.log(`[cron/reminders] stage=${stage} → ${company.name} (${phone})`);
