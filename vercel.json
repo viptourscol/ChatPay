@@ -16,7 +16,7 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/cron/subscription-reminders",
+      "path": "/api/subscription?action=cron-reminders",
       "schedule": "0 15 * * *"
     }
   ]

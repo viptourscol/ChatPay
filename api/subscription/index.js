@@ -1,13 +1,127 @@
 ﻿/**
  * api/subscription/index.js
  *
- * GET  /api/subscription        — estado de suscripción y métricas
- * POST /api/subscription        — crear link de pago en Wompi
+ * GET  /api/subscription                        — estado de suscripción y métricas
+ * GET  /api/subscription?action=cron-reminders  — cron diario de recordatorios WhatsApp
+ * POST /api/subscription                        — crear link de pago en Wompi
  */
 import { requireUser } from '../../lib/auth.js';
 import { requireCompany, getCompany } from '../../lib/getCompany.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { getMonthlyVerificationCount, PLANS } from '../../lib/subscription.js';
+import { sendMessage } from '../../lib/whatsapp.js';
+
+/* ─── Lógica de recordatorios de vencimiento ──────────── */
+const PLAN_PRICES_LABEL = {
+  basico: '$49.900', estandar: '$99.900', pro: '$199.900', empresarial: '$349.900',
+  starter: '$49.900', business: '$99.900', enterprise: '$349.900',
+};
+
+function _fmtDate(isoDate) {
+  const d = new Date(isoDate);
+  return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`;
+}
+
+function _normalizePhone(phone) {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  if (/^57\d{10}$/.test(digits)) return digits;
+  if (/^\d{10}$/.test(digits)) return `57${digits}`;
+  return digits || null;
+}
+
+function _buildReminderMessage(stage, { firstName, planLabel, planPrice, expiresAt }) {
+  const date = _fmtDate(expiresAt);
+  if (stage === '1d') return (
+    `Hola ${firstName} 😊\n\n` +
+    `Tu plan de ChatPay vence mañana ${date} 📅.\n` +
+    `Valor del plan: ${planLabel} ${planPrice} 🧾.\n\n` +
+    `Puedes realizar tu pago a través de la pasarela Wompi integrada en la sección *Suscripción* de ChatPay, o mediante la llave Bre-B 💳.\n\n` +
+    `Obtén un descuento especial según el periodo que elijas: *3% trimestral*, *6% semestral* y *20% anual*. ¿Qué opción prefieres?`
+  );
+  if (stage === '0d') return (
+    `⚠️ Hola ${firstName}, tu plan de ChatPay vence *hoy* 🚨.\n\n` +
+    `Valor del plan: ${planLabel} ${planPrice}\n\n` +
+    `Para evitar interrupciones en el servicio, realiza tu pago lo antes posible en la sección *Suscripción* de ChatPay.\n\n` +
+    `Recuerda que puedes obtener hasta un *20% de descuento* pagando anual 💡.`
+  );
+  if (stage === 'post') return (
+    `Hola, ¿cómo estás? 👋\n\n` +
+    `Te recuerdo que está pendiente la renovación de tu plan para que sigas contando con la confirmación de transferencias y la protección frente a comprobantes falsos sin interrupciones.\n\n` +
+    `Apenas hagas el pago, compártenos el comprobante por este medio para mantener tu cuenta al día. ¿Te ayudo con algo?\n\n` +
+    `⚠️ Tu plan ha sido suspendido automáticamente. Para reactivar el servicio, por favor contáctanos.`
+  );
+  return null;
+}
+
+async function handleCronReminders(req, res) {
+  const isTest     = req.query?.test === 'true';
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers['authorization'] || '';
+  if (!isTest && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const now          = new Date();
+  const todayUTC     = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const tomorrowUTC  = new Date(todayUTC); tomorrowUTC.setUTCDate(todayUTC.getUTCDate() + 1);
+  const yesterdayUTC = new Date(todayUTC); yesterdayUTC.setUTCDate(todayUTC.getUTCDate() - 1);
+  const todayStr     = todayUTC.toISOString().slice(0, 10);
+  const tomorrowStr  = tomorrowUTC.toISOString().slice(0, 10);
+  const yesterdayStr = yesterdayUTC.toISOString().slice(0, 10);
+
+  const { data: companies, error } = await supabaseAdmin
+    .from('companies')
+    .select('id, user_id, name, plan, admin_whatsapp, subscription_expires_at, subscription_reminder_sent')
+    .not('admin_whatsapp', 'is', null)
+    .not('subscription_expires_at', 'is', null)
+    .gte('subscription_expires_at', `${yesterdayStr}T00:00:00Z`)
+    .lte('subscription_expires_at', `${tomorrowStr}T23:59:59Z`);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const results = [];
+  for (const company of companies || []) {
+    const expiresDate = company.subscription_expires_at.slice(0, 10);
+    const sent        = company.subscription_reminder_sent || {};
+    const phone       = _normalizePhone(company.admin_whatsapp);
+    if (!phone) { results.push({ company: company.name, skipped: 'no valid phone' }); continue; }
+
+    let stage = null;
+    if (expiresDate === tomorrowStr) stage = '1d';
+    else if (expiresDate === todayStr)    stage = '0d';
+    else if (expiresDate === yesterdayStr) stage = 'post';
+    if (!stage) { results.push({ company: company.name, skipped: 'no matching stage' }); continue; }
+    if (sent[stage] === todayStr) { results.push({ company: company.name, stage, skipped: 'already sent today' }); continue; }
+
+    // Obtener nombre del admin
+    let firstName = company.name;
+    try {
+      const { data: ud } = await supabaseAdmin.auth.admin.getUserById(company.user_id);
+      const meta = ud?.user?.user_metadata || {};
+      const fullName = meta.full_name || meta.name || ud?.user?.email?.split('@')[0];
+      if (fullName) firstName = fullName.split(' ')[0];
+    } catch { /* usa nombre empresa como fallback */ }
+
+    const planLabel = PLAN_LABELS[company.plan] || company.plan || 'Básico';
+    const planPrice = PLAN_PRICES_LABEL[company.plan] || '';
+    const message   = _buildReminderMessage(stage, { firstName, planLabel, planPrice, expiresAt: company.subscription_expires_at });
+    if (!message) { results.push({ company: company.name, stage, skipped: 'no message' }); continue; }
+
+    if (isTest) { results.push({ company: company.name, stage, phone, message, test: true }); continue; }
+
+    try {
+      await sendMessage(phone, message, { companyId: company.id, messageType: `subscription_reminder_${stage}` });
+      await supabaseAdmin.from('companies').update({ subscription_reminder_sent: { ...sent, [stage]: todayStr } }).eq('id', company.id);
+      results.push({ company: company.name, stage, phone, status: 'sent' });
+      console.log(`[cron/reminders] stage=${stage} → ${company.name} (${phone})`);
+    } catch (err) {
+      results.push({ company: company.name, stage, phone, status: 'failed', error: err.message });
+      console.error(`[cron/reminders] error stage=${stage} → ${company.name}:`, err.message);
+    }
+  }
+  return res.json({ date: todayStr, processed: results.length, test: isTest, results });
+}
 
 /* ─── Precios y descuentos ────────────────────────────── */
 const BASE_PRICES = {
@@ -94,6 +208,11 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(204).end();
+
+  /* ── Cron: no requiere usuario JWT ─────────────────── */
+  if (req.method === 'GET' && req.query?.action === 'cron-reminders') {
+    return handleCronReminders(req, res);
+  }
 
   const user = await requireUser(req, res);
   if (!user) return;
