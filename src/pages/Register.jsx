@@ -6,7 +6,7 @@ import { CheckCircle2 } from 'lucide-react';
 
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '', confirm: '', name: '', company: '' });
+  const [form, setForm] = useState({ email: '', password: '', confirm: '', name: '', company: '', phone: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -19,11 +19,12 @@ export default function Register() {
     if (form.password.length < 8) return setError('La contraseña debe tener mínimo 8 caracteres.');
     if (form.password !== form.confirm) return setError('Las contraseñas no coinciden.');
     if (!form.company.trim()) return setError('El nombre de la empresa es requerido.');
+    if (!form.phone.trim()) return setError('El número de celular es requerido.');
     setLoading(true);
     const { error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: { data: { full_name: form.name, company_name: form.company.trim() } }
+      options: { data: { full_name: form.name, company_name: form.company.trim(), phone: form.phone.trim() } }
     });
     setLoading(false);
     if (signUpError) return setError(signUpError.message);
@@ -109,6 +110,10 @@ export default function Register() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Nombre de tu empresa</label>
                 <input className={inputCls} type="text" required placeholder="Mi Negocio S.A.S." value={form.company} onChange={change('company')} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Celular / WhatsApp</label>
+                <input className={inputCls} type="tel" required placeholder="3001234567" value={form.phone} onChange={change('phone')} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Correo electrónico</label>
