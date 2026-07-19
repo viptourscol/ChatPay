@@ -243,6 +243,7 @@ function TabEmpresa() {
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [saveWarning, setSaveWarning] = useState(null);
 
   // Reinicializar form cuando cambien los datos (cambio de empresa o carga inicial)
   useEffect(() => {
@@ -276,10 +277,14 @@ function TabEmpresa() {
       });
       qc.invalidateQueries({ queryKey: ['settings', companyKey] });
       setSaved(true);
-      setSaveError(result.bank_health_warning || null);
+      setSaveError(null);
+      setSaveWarning(result.bank_health_warning || null);
       setTimeout(() => setSaved(false), 3000);
     },
-    onError: (err) => { setSaveError(err.message || 'Error al guardar'); }
+    onError: (err) => {
+      setSaveWarning(null);
+      setSaveError(err.message || 'Error al guardar');
+    }
   });
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -537,6 +542,11 @@ function TabEmpresa() {
         {saveError && (
           <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-2">
             ⚠️ Error al guardar: {saveError}
+          </div>
+        )}
+        {saveWarning && (
+          <div className="text-amber-700 text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+            ⚠️ Advertencia: {saveWarning}
           </div>
         )}
         <button
