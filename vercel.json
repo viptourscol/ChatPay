@@ -17,7 +17,7 @@
     },
     {
       "path": "/api/bank-health",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/subscription?action=cron-reminders",
