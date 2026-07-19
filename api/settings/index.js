@@ -21,6 +21,7 @@ export default async function handler(req, res) {
   const impersonateId = req.headers['x-impersonate-company'];
   const isAdmin = ADMIN_EMAILS.includes((user.email || '').toLowerCase());
   const impersonating = impersonateId && isAdmin;
+  const canManageBankHealth = isAdmin || !impersonating;
 
   // GET — obtener settings de la empresa
   if (req.method === 'GET') {
@@ -60,7 +61,7 @@ export default async function handler(req, res) {
       data.notification_whatsapp = adjusted;
     }
 
-    if (isAdmin) {
+    if (canManageBankHealth) {
       try {
         const state = await readSystemState([
           'bank_health_mode',
@@ -144,7 +145,7 @@ export default async function handler(req, res) {
     if (error) return res.status(500).json({ error: error.message });
 
     let bankHealthWarning = null;
-    if (isAdmin && bank_health && typeof bank_health === 'object') {
+    if (canManageBankHealth && bank_health && typeof bank_health === 'object') {
       try {
         const manualOverride = bank_health.manual_override === true;
         const mode = normalizeBankHealthMode(bank_health.mode);
@@ -172,7 +173,7 @@ export default async function handler(req, res) {
       }
     }
 
-    if (isAdmin) {
+    if (canManageBankHealth) {
       try {
         const state = await readSystemState([
           'bank_health_mode',
