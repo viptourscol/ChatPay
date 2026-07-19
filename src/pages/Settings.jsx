@@ -436,7 +436,7 @@ function TabEmpresa() {
       </div>
 
       <div className="space-y-4">
-        {form.bank_health?.enabled && (
+        {form.bank_health && (
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -454,11 +454,18 @@ function TabEmpresa() {
               </span>
             </div>
 
+            {!form.bank_health.enabled && (
+              <div className="text-xs text-amber-800 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2">
+                El control está temporalmente degradado (estado global no disponible). Puedes guardar igual y el sistema intentará sincronizar en el próximo ciclo.
+              </div>
+            )}
+
             <label className="flex items-center gap-2 text-sm text-amber-900">
               <input
                 type="checkbox"
                 checked={!!form.bank_health.manual_override}
                 onChange={(e) => setBankHealth({ manual_override: e.target.checked })}
+                disabled={!form.bank_health.enabled}
               />
               Control manual activo
             </label>
@@ -470,6 +477,7 @@ function TabEmpresa() {
                   className="input w-full bg-white"
                   value={form.bank_health.mode || 'available'}
                   onChange={(e) => setBankHealth({ mode: e.target.value })}
+                  disabled={!form.bank_health.enabled}
                 >
                   <option value="available">Disponible</option>
                   <option value="intermittent">Intermitencia bancaria</option>
@@ -492,6 +500,7 @@ function TabEmpresa() {
                 placeholder="Ej: Intermitencia bancaria, algunas notificaciones pueden tardar"
                 value={form.bank_health.manual_message || ''}
                 onChange={(e) => setBankHealth({ manual_message: e.target.value })}
+                disabled={!form.bank_health.enabled}
               />
               <p className="text-[11px] text-amber-700 mt-1">
                 Si está vacío, se usa el mensaje por defecto del sistema.
