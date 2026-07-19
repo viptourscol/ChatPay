@@ -63,6 +63,8 @@ Empleado WhatsApp ──img──▶ Meta ──▶ /api/webhook/whatsapp
 
 1. Crea una API key en https://console.groq.com.
 2. Pégala en `GROQ_API_KEY`.
+3. Si quieres fijar otro modelo de OCR, usa `GROQ_OCR_MODEL` y deja un modelo de visión válido, por ejemplo `qwen/qwen3.6-27b`.
+4. El fallback por defecto es `meta-llama/llama-4-scout-17b-16e-instruct`. Puedes cambiarlo con `GROQ_OCR_MODEL_FALLBACK`.
 
 ### 4. Gmail API
 
