@@ -61,22 +61,34 @@ export default async function handler(req, res) {
     }
 
     if (isAdmin) {
-      const state = await readSystemState([
-        'bank_health_mode',
-        'bank_health_reason',
-        'bank_health_since',
-        'bank_health_manual_override',
-        'bank_health_manual_message'
-      ]);
+      try {
+        const state = await readSystemState([
+          'bank_health_mode',
+          'bank_health_reason',
+          'bank_health_since',
+          'bank_health_manual_override',
+          'bank_health_manual_message'
+        ]);
 
-      data.bank_health = {
-        enabled: true,
-        mode: normalizeBankHealthMode(state.bank_health_mode),
-        reason: state.bank_health_reason || 'init',
-        since: state.bank_health_since || null,
-        manual_override: state.bank_health_manual_override === 'true',
-        manual_message: state.bank_health_manual_message || ''
-      };
+        data.bank_health = {
+          enabled: true,
+          mode: normalizeBankHealthMode(state.bank_health_mode),
+          reason: state.bank_health_reason || 'init',
+          since: state.bank_health_since || null,
+          manual_override: state.bank_health_manual_override === 'true',
+          manual_message: state.bank_health_manual_message || ''
+        };
+      } catch (err) {
+        console.error('[settings/get] bank_health fallback:', err?.message || err);
+        data.bank_health = {
+          enabled: false,
+          mode: 'available',
+          reason: 'unavailable',
+          since: null,
+          manual_override: false,
+          manual_message: ''
+        };
+      }
     }
 
     return res.json(data);
@@ -161,21 +173,33 @@ export default async function handler(req, res) {
     }
 
     if (isAdmin) {
-      const state = await readSystemState([
-        'bank_health_mode',
-        'bank_health_reason',
-        'bank_health_since',
-        'bank_health_manual_override',
-        'bank_health_manual_message'
-      ]);
-      result.bank_health = {
-        enabled: true,
-        mode: normalizeBankHealthMode(state.bank_health_mode),
-        reason: state.bank_health_reason || 'init',
-        since: state.bank_health_since || null,
-        manual_override: state.bank_health_manual_override === 'true',
-        manual_message: state.bank_health_manual_message || ''
-      };
+      try {
+        const state = await readSystemState([
+          'bank_health_mode',
+          'bank_health_reason',
+          'bank_health_since',
+          'bank_health_manual_override',
+          'bank_health_manual_message'
+        ]);
+        result.bank_health = {
+          enabled: true,
+          mode: normalizeBankHealthMode(state.bank_health_mode),
+          reason: state.bank_health_reason || 'init',
+          since: state.bank_health_since || null,
+          manual_override: state.bank_health_manual_override === 'true',
+          manual_message: state.bank_health_manual_message || ''
+        };
+      } catch (err) {
+        console.error('[settings/put] bank_health fallback:', err?.message || err);
+        result.bank_health = {
+          enabled: false,
+          mode: 'available',
+          reason: 'unavailable',
+          since: null,
+          manual_override: false,
+          manual_message: ''
+        };
+      }
     }
 
     if (bankHealthWarning) result.bank_health_warning = bankHealthWarning;
