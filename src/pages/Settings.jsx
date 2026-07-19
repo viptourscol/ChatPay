@@ -247,7 +247,16 @@ function TabEmpresa() {
   // Reinicializar form cuando cambien los datos (cambio de empresa o carga inicial)
   useEffect(() => {
     if (data) {
-      setForm({ name: data.name || '', nit: data.nit || '', tax_regime: data.tax_regime || '', address: data.address || '', phone: data.phone || '', bancolombia_email: data.bancolombia_email || '', notification_whatsapp: Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : [] });
+      setForm({
+        name: data.name || '',
+        nit: data.nit || '',
+        tax_regime: data.tax_regime || '',
+        address: data.address || '',
+        phone: data.phone || '',
+        bancolombia_email: data.bancolombia_email || '',
+        notification_whatsapp: Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : [],
+        bank_health: data.bank_health || null
+      });
     }
   }, [data]);
 
@@ -255,16 +264,32 @@ function TabEmpresa() {
     mutationFn: (body) => api('/api/settings', { method: 'PUT', body }),
     onSuccess: (result) => {
       // Actualizar form con datos guardados para reflejar lo que devolvió el servidor
-      setForm({ name: result.name || '', nit: result.nit || '', tax_regime: result.tax_regime || '', address: result.address || '', phone: result.phone || '', bancolombia_email: result.bancolombia_email || '', notification_whatsapp: Array.isArray(result.notification_whatsapp) ? result.notification_whatsapp : [] });
+      setForm({
+        name: result.name || '',
+        nit: result.nit || '',
+        tax_regime: result.tax_regime || '',
+        address: result.address || '',
+        phone: result.phone || '',
+        bancolombia_email: result.bancolombia_email || '',
+        notification_whatsapp: Array.isArray(result.notification_whatsapp) ? result.notification_whatsapp : [],
+        bank_health: result.bank_health || null
+      });
       qc.invalidateQueries({ queryKey: ['settings', companyKey] });
       setSaved(true);
-      setSaveError(null);
+      setSaveError(result.bank_health_warning || null);
       setTimeout(() => setSaved(false), 3000);
     },
     onError: (err) => { setSaveError(err.message || 'Error al guardar'); }
   });
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setBankHealth = (patch) => setForm((f) => ({
+    ...f,
+    bank_health: {
+      ...(f.bank_health || {}),
+      ...patch
+    }
+  }));
 
   function copyId() {
     if (data?.id) navigator.clipboard.writeText(data.id);
@@ -411,6 +436,70 @@ function TabEmpresa() {
       </div>
 
       <div className="space-y-4">
+        {form.bank_health?.enabled && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Estado global WhatsApp (Info/About)</p>
+                <p className="text-xs text-amber-700">
+                  Visible para todos los usuarios de ChatPay en WhatsApp. Puedes forzar estado manual o dejar recuperación automática.
+                </p>
+              </div>
+              <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                form.bank_health.mode === 'intermittent'
+                  ? 'bg-amber-200 text-amber-900'
+                  : 'bg-emerald-200 text-emerald-800'
+              }`}>
+                {form.bank_health.mode === 'intermittent' ? 'Intermitencia' : 'Disponible'}
+              </span>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-amber-900">
+              <input
+                type="checkbox"
+                checked={!!form.bank_health.manual_override}
+                onChange={(e) => setBankHealth({ manual_override: e.target.checked })}
+              />
+              Control manual activo
+            </label>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-amber-700 mb-1 block">Modo</label>
+                <select
+                  className="input w-full bg-white"
+                  value={form.bank_health.mode || 'available'}
+                  onChange={(e) => setBankHealth({ mode: e.target.value })}
+                >
+                  <option value="available">Disponible</option>
+                  <option value="intermittent">Intermitencia bancaria</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-amber-700 mb-1 block">Razón actual</label>
+                <input
+                  className="input w-full bg-slate-50"
+                  value={form.bank_health.reason || ''}
+                  readOnly
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-amber-700 mb-1 block">Mensaje custom (opcional)</label>
+              <input
+                className="input w-full bg-white"
+                placeholder="Ej: Intermitencia bancaria, algunas notificaciones pueden tardar"
+                value={form.bank_health.manual_message || ''}
+                onChange={(e) => setBankHealth({ manual_message: e.target.value })}
+              />
+              <p className="text-[11px] text-amber-700 mt-1">
+                Si está vacío, se usa el mensaje por defecto del sistema.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-slate-600 mb-1 block">Nombre de la Empresa</label>
