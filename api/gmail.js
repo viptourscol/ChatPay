@@ -7,6 +7,7 @@
  */
 
 import { syncBancolombiaEmails, saveHistoryId, watchGmailInbox } from '../lib/gmail.js';
+import { runBankHealthJob } from '../lib/bankHealthJob.js';
 
 export const config = { api: { bodyParser: true } };
 
@@ -63,6 +64,19 @@ export default async function handler(req, res) {
       return res.json({ ok: true, historyId: result.historyId, expiresAt });
     } catch (err) {
       console.error('[gmail/watch] error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // ── BANK HEALTH (global WhatsApp info status) ───────────────────────────
+  if (action === 'bank-health') {
+    if (!checkSecret(req)) return res.status(401).json({ error: 'unauthorized' });
+    if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
+    try {
+      const result = await runBankHealthJob();
+      return res.json(result);
+    } catch (err) {
+      console.error('[bank-health] error:', err);
       return res.status(500).json({ error: err.message });
     }
   }

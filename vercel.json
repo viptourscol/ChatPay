@@ -16,7 +16,7 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/bank-health",
+      "path": "/api/gmail?action=bank-health",
       "schedule": "0 12 * * *"
     },
     {
