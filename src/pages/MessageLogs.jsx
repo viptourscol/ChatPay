@@ -47,15 +47,6 @@ function WhatsAppModal({ log, onClose }) {
     hour: '2-digit', minute: '2-digit'
   });
 
-  // Convertir *texto* a <strong> y _texto_ a <em>
-  function formatWaText(text) {
-    if (!text) return '';
-    return text
-      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
-      .replace(/_(.*?)_/g, '<em>$1</em>')
-      .replace(/\n/g, '<br/>');
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -86,8 +77,9 @@ function WhatsAppModal({ log, onClose }) {
                 {log.message_text ? (
                   <p
                     className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ __html: formatWaText(log.message_text) }}
-                  />
+                  >
+                    {log.message_text}
+                  </p>
                 ) : (
                   <p className="text-sm text-slate-400 italic">[Mensaje de plantilla — sin texto guardado]</p>
                 )}

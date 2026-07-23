@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   const impersonateId = req.headers['x-impersonate-company'];
   const isAdmin = ADMIN_EMAILS.includes((user.email || '').toLowerCase());
   const impersonating = impersonateId && isAdmin;
-  const canManageBankHealth = isAdmin || !impersonating;
+  const canManageBankHealth = isAdmin;
 
   // GET — obtener settings de la empresa
   if (req.method === 'GET') {

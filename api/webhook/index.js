@@ -7,7 +7,7 @@
  *   /api/webhook/whatsapp  →  /api/webhook?provider=whatsapp
  *   /api/webhook/wompi     →  /api/webhook?provider=wompi
  */
-import { createHmac }               from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { supabaseAdmin }            from '../../lib/supabase.js';
 import { sendMessage, downloadMedia, sendPaymentNotification } from '../../lib/whatsapp.js';
 import { extractComprobanteData }   from '../../lib/groq.js';
@@ -16,7 +16,7 @@ import { checkVerificationLimit }   from '../../lib/subscription.js';
 import { parseBankSms }             from '../../lib/smsParser.js';
 import kommoHandler                 from '../../lib/kommo-webhook.js';
 
-export const config = { api: { bodyParser: true } };
+export const config = { api: { bodyParser: false } };
 
 // ─── Límites por plan (fuente de verdad para activación de pagos) ────────────
 const PLAN_LIMITS = {
@@ -29,6 +29,52 @@ const PLAN_LIMITS = {
   business:    { max_employees: 2,  max_verifications_month: 800,   max_bank_accounts: 2 },
   enterprise:  { max_employees: 10, max_verifications_month: 10000, max_bank_accounts: 8 },
 };
+
+function safeEqualHex(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const aa = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (aa.length !== bb.length) return false;
+  return timingSafeEqual(aa, bb);
+}
+
+function verifyMetaSignature(req) {
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  const header = req.headers['x-hub-signature-256'];
+  if (!appSecret || !header || typeof header !== 'string') return false;
+  const payload = req.rawBody || JSON.stringify(req.body || {});
+  const expected = `sha256=${createHmac('sha256', appSecret).update(payload).digest('hex')}`;
+  return safeEqualHex(expected, header);
+}
+
+async function readRawBody(req) {
+  if (typeof req.rawBody === 'string') return req.rawBody;
+
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+async function ensureParsedBody(req) {
+  if (req.method !== 'POST') return;
+  const rawBody = await readRawBody(req);
+  req.rawBody = rawBody;
+
+  const ct = (req.headers['content-type'] || '').toLowerCase();
+  const looksJson = rawBody.trim().startsWith('{') || rawBody.trim().startsWith('[');
+  if (ct.includes('application/json') || looksJson) {
+    try {
+      req.body = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      req.body = {};
+    }
+    return;
+  }
+
+  req.body = rawBody;
+}
 
 // ─── Wompi ───────────────────────────────────────────────────────────────────
 async function handleWompi(req, res) {
@@ -44,26 +90,58 @@ async function handleWompi(req, res) {
 
   // Verificar firma si está configurado WOMPI_EVENTS_SECRET
   const eventsSecret = process.env.WOMPI_EVENTS_SECRET;
-  if (eventsSecret && signature?.checksum) {
-    const chain = (signature.properties || []).map(p =>
-      p.split('.').reduce((obj, key) => obj?.[key], event)
-    ).join('') + eventsSecret;
-    const computed = createHmac('sha256', eventsSecret).update(chain).digest('hex');
-    if (computed !== signature.checksum) {
-      console.error('[wompi-webhook] Firma inválida');
-      return res.status(401).json({ error: 'Firma inválida' });
-    }
+  if (!eventsSecret || !signature?.checksum || !Array.isArray(signature.properties)) {
+    console.error('[wompi-webhook] Configuración o firma incompleta');
+    return res.status(401).json({ error: 'Firma requerida' });
+  }
+
+  const chain = signature.properties.map(p =>
+    p.split('.').reduce((obj, key) => obj?.[key], event)
+  ).join('') + eventsSecret;
+  const computed = createHmac('sha256', eventsSecret).update(chain).digest('hex');
+  if (!safeEqualHex(computed, signature.checksum)) {
+    console.error('[wompi-webhook] Firma inválida');
+    return res.status(401).json({ error: 'Firma inválida' });
   }
 
   // Decodificar reference: "companyId|plan|months"
   const parts = (tx.reference || '').split('|');
-  if (parts.length < 2) {
+  if (parts.length < 3) {
     console.log('[wompi-webhook] reference sin formato esperado:', tx.reference);
     return res.status(200).json({ ok: true });
   }
 
   const [companyId, plan, monthsStr] = parts;
-  const months = parseInt(monthsStr) || 1;
+  const months = parseInt(monthsStr, 10);
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(companyId);
+  if (!isUuid || !PLAN_LIMITS[plan] || ![1, 3, 6, 12].includes(months)) {
+    console.error('[wompi-webhook] reference inválida');
+    return res.status(400).json({ error: 'Reference inválida' });
+  }
+
+  const wompiPrivateKey = process.env.WOMPI_PRIVATE_KEY;
+  if (!wompiPrivateKey) {
+    console.error('[wompi-webhook] WOMPI_PRIVATE_KEY faltante');
+    return res.status(500).json({ error: 'Config incompleta' });
+  }
+
+  const isTestKey = wompiPrivateKey.startsWith('prv_test_');
+  const wBaseUrl = isTestKey ? 'https://sandbox.wompi.co/v1' : 'https://api.wompi.co/v1';
+  const verifyRes = await fetch(`${wBaseUrl}/transactions/${tx.id}`, {
+    headers: { Authorization: `Bearer ${wompiPrivateKey}` },
+  });
+  if (!verifyRes.ok) {
+    console.error('[wompi-webhook] No se pudo verificar tx en Wompi:', verifyRes.status);
+    return res.status(502).json({ error: 'No se pudo verificar la transacción' });
+  }
+
+  const verifyBody = await verifyRes.json();
+  const txVerified = verifyBody?.data;
+  if (!txVerified || txVerified.status !== 'APPROVED' || txVerified.reference !== tx.reference) {
+    console.error('[wompi-webhook] transacción no válida en verificación server-to-server');
+    return res.status(401).json({ error: 'Transacción no válida' });
+  }
+
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.starter;
 
   const expiresAt = new Date();
@@ -76,6 +154,7 @@ async function handleWompi(req, res) {
       subscription_status:     'active',
       is_active:               true,
       trial_ends_at:           null,
+      subscription_expires_at: expiresAt.toISOString(),
       max_employees:           limits.max_employees,
       max_verifications_month: limits.max_verifications_month,
       max_bank_accounts:       limits.max_bank_accounts,
@@ -105,6 +184,11 @@ async function handleWhatsApp(req, res) {
   }
 
   if (req.method !== 'POST') return res.status(405).end();
+
+  if (!verifyMetaSignature(req)) {
+    console.error('[webhook/whatsapp] Firma inválida o configuración incompleta');
+    return res.status(401).json({ error: 'Firma inválida' });
+  }
 
   try {
     const entry = req.body?.entry?.[0];
@@ -564,10 +648,17 @@ async function handleSms(req, res) {
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 export default function handler(req, res) {
-  const provider = req.query.provider;
-  if (provider === 'wompi')    return handleWompi(req, res);
-  if (provider === 'whatsapp') return handleWhatsApp(req, res);
-  if (provider === 'kommo')    return kommoHandler(req, res);
-  if (provider === 'sms')      return handleSms(req, res);
-  return res.status(400).json({ error: 'provider requerido: ?provider=whatsapp|wompi|kommo|sms' });
+  return (async () => {
+    const provider = req.query.provider;
+
+    if (req.method === 'POST') {
+      await ensureParsedBody(req);
+    }
+
+    if (provider === 'wompi')    return handleWompi(req, res);
+    if (provider === 'whatsapp') return handleWhatsApp(req, res);
+    if (provider === 'kommo')    return kommoHandler(req, res);
+    if (provider === 'sms')      return handleSms(req, res);
+    return res.status(400).json({ error: 'provider requerido: ?provider=whatsapp|wompi|kommo|sms' });
+  })();
 }

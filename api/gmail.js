@@ -28,6 +28,7 @@ export default async function handler(req, res) {
 
   // ── PUSH (Pub/Sub) ────────────────────────────────────────────────────────
   if (action === 'push') {
+    if (!checkSecret(req)) return res.status(401).json({ error: 'unauthorized' });
     if (req.method !== 'POST') return res.status(405).end();
     try {
       const envelope = req.body;
