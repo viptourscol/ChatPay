@@ -40,8 +40,10 @@ function safeEqualHex(a, b) {
 
 function verifyMetaSignature(req) {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
+  // Si el secret no está configurado, permitir el request (modo sin firma)
+  if (!appSecret) return true;
   const header = req.headers['x-hub-signature-256'];
-  if (!appSecret || !header || typeof header !== 'string') return false;
+  if (!header || typeof header !== 'string') return false;
   const payload = req.rawBody || JSON.stringify(req.body || {});
   const expected = `sha256=${createHmac('sha256', appSecret).update(payload).digest('hex')}`;
   return safeEqualHex(expected, header);
@@ -90,18 +92,21 @@ async function handleWompi(req, res) {
 
   // Verificar firma si está configurado WOMPI_EVENTS_SECRET
   const eventsSecret = process.env.WOMPI_EVENTS_SECRET;
-  if (!eventsSecret || !signature?.checksum || !Array.isArray(signature.properties)) {
-    console.error('[wompi-webhook] Configuración o firma incompleta');
-    return res.status(401).json({ error: 'Firma requerida' });
-  }
-
-  const chain = signature.properties.map(p =>
-    p.split('.').reduce((obj, key) => obj?.[key], event)
-  ).join('') + eventsSecret;
-  const computed = createHmac('sha256', eventsSecret).update(chain).digest('hex');
-  if (!safeEqualHex(computed, signature.checksum)) {
-    console.error('[wompi-webhook] Firma inválida');
-    return res.status(401).json({ error: 'Firma inválida' });
+  if (eventsSecret) {
+    if (!signature?.checksum || !Array.isArray(signature.properties)) {
+      console.error('[wompi-webhook] Firma incompleta');
+      return res.status(401).json({ error: 'Firma requerida' });
+    }
+    const chain = signature.properties.map(p =>
+      p.split('.').reduce((obj, key) => obj?.[key], event)
+    ).join('') + eventsSecret;
+    const computed = createHmac('sha256', eventsSecret).update(chain).digest('hex');
+    if (!safeEqualHex(computed, signature.checksum)) {
+      console.error('[wompi-webhook] Firma inválida');
+      return res.status(401).json({ error: 'Firma inválida' });
+    }
+  } else {
+    console.warn('[wompi-webhook] WOMPI_EVENTS_SECRET no configurado, omitiendo verificación de firma');
   }
 
   // Decodificar reference: "companyId|plan|months"
