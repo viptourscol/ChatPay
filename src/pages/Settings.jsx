@@ -244,7 +244,6 @@ function TabEmpresa() {
   const [saveError, setSaveError] = useState(null);
   const [saveWarning, setSaveWarning] = useState(null);
 
-  // Reinicializar form cuando cambien los datos (cambio de empresa o carga inicial)
   useEffect(() => {
     if (data) {
       setForm({
@@ -262,7 +261,6 @@ function TabEmpresa() {
   const mutation = useMutation({
     mutationFn: (body) => api('/api/settings', { method: 'PUT', body }),
     onSuccess: (result) => {
-      // Actualizar form con datos guardados para reflejar lo que devolvió el servidor
       setForm({
         name: result.name || '',
         nit: result.nit || '',
@@ -295,7 +293,6 @@ function TabEmpresa() {
     <div>
       <h2 className="font-semibold text-lg mb-5 flex items-center gap-2"><Building2 size={18} /> Información de la Empresa</h2>
 
-      {/* ID de la empresa */}
       {data?.id && (
         <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 mb-4">
           <div className="text-sm font-medium text-blue-700 mb-0.5">ID de la Empresa</div>
@@ -308,84 +305,12 @@ function TabEmpresa() {
               title="Copiar ID"
             >
               <Clipboard size={15} />
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-slate-600 mb-1 block">Nombre de la Empresa</label>
-                  <input className="input w-full" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Ej: Mi Empresa SAS" />
-                </div>
-                <div>
-                  <label className="text-sm text-slate-600 mb-1 block">NIT</label>
-                  <input className="input w-full" value={form.nit} onChange={(e) => set('nit', e.target.value)} placeholder="Ej: 1063302962" />
-                </div>
-              </div>
-                onChange={(e) => {
-                  const next = [...form.notification_whatsapp];
-                  next[idx] = { ...next[idx], number: e.target.value };
-                  set('notification_whatsapp', next);
-                }}
-                placeholder="+573001234567"
-                type="tel"
-              />
-              {/* Toggle activo/inactivo */}
-              <button
-                type="button"
-                disabled={!canActivate}
-                title={!canActivate ? 'Límite de números activos alcanzado. Desactiva otro primero.' : contact.active ? 'Pausar notificaciones' : 'Activar notificaciones'}
-                onClick={() => {
-                  if (!canActivate) return;
-                  const next = [...form.notification_whatsapp];
-                  next[idx] = { ...next[idx], active: !next[idx].active };
-                  set('notification_whatsapp', next);
-                }}
-                className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                  !canActivate ? 'opacity-40 cursor-not-allowed bg-slate-200' : 'cursor-pointer ' + (contact.active ? 'bg-indigo-500' : 'bg-slate-300')
-                }`}
-              >
-                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${contact.active ? 'translate-x-4' : 'translate-x-0'}`} />
-              </button>
-              <button
-                type="button"
-                title="Eliminar"
-                onClick={() => {
-                  const next = form.notification_whatsapp.filter((_, i) => i !== idx);
-                  set('notification_whatsapp', next);
-                }}
-                className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-            );
-          })}
+            </button>
+          </div>
         </div>
+      )}
 
-        <button
-          type="button"
-          onClick={() => {
-            const maxNums = planWhatsappMax(data?.plan);
-            const activeCount = form.notification_whatsapp.filter(c => c.active).length;
-            if (activeCount >= maxNums) return;
-            set('notification_whatsapp', [...form.notification_whatsapp, { number: '', active: true }]);
-          }}
-          disabled={(() => {
-            const maxNums = planWhatsappMax(data?.plan);
-            return form.notification_whatsapp.filter(c => c.active).length >= maxNums;
-          })()}
-          className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <PlusCircle size={14} /> Agregar número
-        </button>
-        <p className="text-xs text-indigo-400 mt-2">
-          Formato internacional: +57 seguido de 10 dígitos.
-          {(() => {
-            const max = planWhatsappMax(data?.plan);
-            if (max === 0) return <span className="text-amber-500 font-medium"> No disponible en tu plan actual.</span>;
-            return <span> Máx. {max} número{max !== 1 ? 's' : ''} en tu plan.</span>;
-          })()}
-        </p>
-      </div>
-
+      <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-slate-600 mb-1 block">Nombre de la Empresa</label>
@@ -412,6 +337,100 @@ function TabEmpresa() {
         <div>
           <label className="text-sm text-slate-600 mb-1 block">Teléfono</label>
           <input className="input w-full" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Ej: (601) 234-5678" />
+        </div>
+
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-sm font-medium text-indigo-700 flex items-center gap-1.5">
+              <Smartphone size={14} /> Números de notificación WhatsApp
+            </div>
+            {form.notification_whatsapp.some(c => c.active) && (
+              <span className="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">
+                {form.notification_whatsapp.filter(c => c.active).length} activo{form.notification_whatsapp.filter(c => c.active).length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-indigo-600 mb-3">
+            Cuando se verifique un pago, ChatPay enviará un resumen a los números activos. Puedes pausar alguno sin eliminarlo.
+          </p>
+
+          <div className="space-y-2 mb-3">
+            {form.notification_whatsapp.length === 0 && (
+              <p className="text-xs text-indigo-400 italic text-center py-2">Sin números configurados</p>
+            )}
+            {form.notification_whatsapp.map((contact, idx) => {
+              const maxNums = planWhatsappMax(data?.plan);
+              const activeCount = form.notification_whatsapp.filter(c => c.active).length;
+              const canActivate = contact.active || activeCount < maxNums;
+              return (
+                <div key={idx} className="flex items-center gap-2 bg-white border border-indigo-100 rounded-lg px-3 py-2">
+                  <input
+                    className="flex-1 text-sm bg-transparent outline-none text-slate-700 placeholder-slate-400"
+                    value={contact.number}
+                    onChange={(e) => {
+                      const next = [...form.notification_whatsapp];
+                      next[idx] = { ...next[idx], number: e.target.value };
+                      set('notification_whatsapp', next);
+                    }}
+                    placeholder="+573001234567"
+                    type="tel"
+                  />
+                  <button
+                    type="button"
+                    disabled={!canActivate}
+                    title={!canActivate ? 'Límite de números activos alcanzado. Desactiva otro primero.' : contact.active ? 'Pausar notificaciones' : 'Activar notificaciones'}
+                    onClick={() => {
+                      if (!canActivate) return;
+                      const next = [...form.notification_whatsapp];
+                      next[idx] = { ...next[idx], active: !next[idx].active };
+                      set('notification_whatsapp', next);
+                    }}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                      !canActivate ? 'opacity-40 cursor-not-allowed bg-slate-200' : 'cursor-pointer ' + (contact.active ? 'bg-indigo-500' : 'bg-slate-300')
+                    }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${contact.active ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Eliminar"
+                    onClick={() => {
+                      const next = form.notification_whatsapp.filter((_, i) => i !== idx);
+                      set('notification_whatsapp', next);
+                    }}
+                    className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const maxNums = planWhatsappMax(data?.plan);
+              const activeCount = form.notification_whatsapp.filter(c => c.active).length;
+              if (activeCount >= maxNums) return;
+              set('notification_whatsapp', [...form.notification_whatsapp, { number: '', active: true }]);
+            }}
+            disabled={(() => {
+              const maxNums = planWhatsappMax(data?.plan);
+              return form.notification_whatsapp.filter(c => c.active).length >= maxNums;
+            })()}
+            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <PlusCircle size={14} /> Agregar número
+          </button>
+          <p className="text-xs text-indigo-400 mt-2">
+            Formato internacional: +57 seguido de 10 dígitos.
+            {(() => {
+              const max = planWhatsappMax(data?.plan);
+              if (max === 0) return <span className="text-amber-500 font-medium"> No disponible en tu plan actual.</span>;
+              return <span> Máx. {max} número{max !== 1 ? 's' : ''} en tu plan.</span>;
+            })()}
+          </p>
         </div>
 
         {saveError && (
