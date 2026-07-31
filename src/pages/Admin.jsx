@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import {
@@ -100,7 +100,7 @@ function StatCard({ icon: Icon, label, value, sub, color = 'brand' }) {
   );
 }
 
-function BankHealthCard({ data, isLoading }) {
+function BankHealthCard({ data, isLoading, form, setForm, onSave, saving }) {
   const mode = data?.mode === 'intermittent' ? 'Intermitencia bancaria' : 'Disponible';
   const badgeCls = data?.mode === 'intermittent'
     ? 'bg-amber-100 text-amber-800 border-amber-200'
@@ -139,6 +139,53 @@ function BankHealthCard({ data, isLoading }) {
         <div className="rounded-xl bg-white/80 border border-amber-100 p-3">
           <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Mensaje</div>
           <div className="font-medium text-slate-800 break-words">{data?.manual_message || 'Mensaje por defecto del sistema'}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-amber-200/70 space-y-3">
+        <label className="flex items-center gap-2 text-sm text-amber-900">
+          <input
+            type="checkbox"
+            checked={!!form.manual_override}
+            onChange={(e) => setForm((prev) => ({ ...prev, manual_override: e.target.checked }))}
+          />
+          Activar control manual
+        </label>
+
+        <div>
+          <label className="text-xs font-medium text-amber-700 mb-1 block">Modo</label>
+          <select
+            className="input w-full bg-white"
+            value={form.mode}
+            onChange={(e) => setForm((prev) => ({ ...prev, mode: e.target.value }))}
+          >
+            <option value="available">Disponible</option>
+            <option value="intermittent">Intermitencia bancaria</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-amber-700 mb-1 block">Mensaje custom</label>
+          <input
+            className="input w-full bg-white"
+            placeholder="Ej: Intermitencia bancaria, algunas notificaciones pueden tardar"
+            value={form.manual_message}
+            onChange={(e) => setForm((prev) => ({ ...prev, manual_message: e.target.value }))}
+          />
+          <p className="text-[11px] text-amber-700 mt-1">Se aplicará al About de WhatsApp cuando guardes.</p>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-amber-700">
+            {form.manual_override ? 'El modo manual se aplicará al guardar.' : 'Si no activas override, el sistema intenta recuperación automática.'}
+          </p>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="btn btn-primary text-sm"
+          >
+            {saving ? 'Guardando…' : 'Guardar cambio'}
+          </button>
         </div>
       </div>
     </div>
@@ -499,6 +546,31 @@ export default function Admin() {
     queryFn: () => api('/api/admin/companies', { query: { action: 'bank-health' } }),
   });
 
+  const [bankHealthForm, setBankHealthForm] = useState({
+    mode: 'available',
+    manual_override: false,
+    manual_message: '',
+  });
+
+  useEffect(() => {
+    if (!bankHealth) return;
+    setBankHealthForm({
+      mode: bankHealth.mode || 'available',
+      manual_override: !!bankHealth.manual_override,
+      manual_message: bankHealth.manual_message || '',
+    });
+  }, [bankHealth]);
+
+  const bankHealthMutation = useMutation({
+    mutationFn: (body) => api('/api/admin/companies', { method: 'PUT', query: { action: 'bank-health' }, body }),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['admin-bank-health'] }),
+        refetchBankHealth(),
+      ]);
+    },
+  });
+
   const mutation = useMutation({
     mutationFn: (body) => api('/api/admin/companies', { method: 'PATCH', body }),
     onSuccess:  () => { qc.invalidateQueries({ queryKey: ['admin-companies'] }); setEditing(null); },
@@ -595,7 +667,14 @@ export default function Admin() {
         <StatCard icon={BadgeDollarSign} label="MRR estimado"   value={fmtPrice(stats.mrr)}   color="purple"  sub="clientes activos" />
       </div>
 
-      <BankHealthCard data={bankHealth} isLoading={bankHealthLoading} />
+      <BankHealthCard
+        data={bankHealth}
+        isLoading={bankHealthLoading}
+        form={bankHealthForm}
+        setForm={setBankHealthForm}
+        onSave={() => bankHealthMutation.mutate(bankHealthForm)}
+        saving={bankHealthMutation.isPending}
+      />
 
       {/* Filtros */}
       <div className="card py-3 px-4 flex flex-wrap items-center gap-3">
