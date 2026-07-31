@@ -4,6 +4,41 @@ import { resolveCompany } from '../../lib/getCompany.js';
 import { sendAdminAlert } from '../../lib/whatsapp.js';
 import { checkAndIncrementAlertLimit } from '../../lib/subscription.js';
 
+function safeFileName(name = 'comprobante') {
+  return String(name)
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .slice(0, 80) || 'comprobante';
+}
+
+function parseDateInput(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+async function uploadManualReceipt({ companyId, transactionId, base64, filename }) {
+  if (!base64) return null;
+
+  const raw = String(base64).trim();
+  const match = raw.match(/^data:([^;]+);base64,(.+)$/i);
+  const mimeType = match?.[1] || 'image/jpeg';
+  const payload = match?.[2] || raw;
+  const buffer = Buffer.from(payload, 'base64');
+  const ext = (filename && filename.includes('.'))
+    ? safeFileName(filename).split('.').pop()
+    : (mimeType.split('/')[1] || 'jpg');
+  const path = `manual/${companyId}/${transactionId}/${Date.now()}-${safeFileName(filename || 'comprobante')}.${ext}`;
+
+  const { error } = await supabaseAdmin.storage
+    .from('comprobantes')
+    .upload(path, buffer, { contentType: mimeType, upsert: false });
+
+  if (error) throw error;
+  return path;
+}
+
 export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
@@ -60,6 +95,128 @@ export default async function handler(req, res) {
       })
     );
     return res.json({ items: withUrls, total: count || 0, pageSize: ps, page: pg });
+  }
+
+  if (req.method === 'POST') {
+    const {
+      transaction_id,
+      extracted_amount,
+      extracted_reference,
+      extracted_sender,
+      extracted_date,
+      location_id,
+      notes,
+      comprobante_base64,
+      comprobante_filename,
+      employee_id,
+    } = req.body || {};
+
+    if (!transaction_id) return res.status(400).json({ error: 'transaction_id required' });
+
+    const { data: transaction, error: txErr } = await supabaseAdmin
+      .from('transactions')
+      .select('id, amount, reference_number, sender_name, transaction_date, status, company_id')
+      .eq('id', transaction_id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+
+    if (txErr) return res.status(500).json({ error: txErr.message });
+    if (!transaction) return res.status(404).json({ error: 'Transacción no encontrada' });
+
+    let resolvedLocationId = location_id || null;
+    if (employee_id) {
+      const { data: employee, error: employeeErr } = await supabaseAdmin
+        .from('employees')
+        .select('id, location_id')
+        .eq('id', employee_id)
+        .eq('company_id', companyId)
+        .maybeSingle();
+      if (employeeErr) return res.status(500).json({ error: employeeErr.message });
+      if (!employee) return res.status(400).json({ error: 'Empleado inválido' });
+      if (!resolvedLocationId) resolvedLocationId = employee.location_id || null;
+    }
+
+    if (resolvedLocationId) {
+      const { data: location, error: locationErr } = await supabaseAdmin
+        .from('company_locations')
+        .select('id')
+        .eq('id', resolvedLocationId)
+        .eq('company_id', companyId)
+        .maybeSingle();
+      if (locationErr) return res.status(500).json({ error: locationErr.message });
+      if (!location) return res.status(400).json({ error: 'Sede inválida' });
+      resolvedLocationId = location.id;
+    }
+
+    const verificationPayload = {
+      company_id: companyId,
+      employee_id: employee_id || null,
+      location_id: resolvedLocationId,
+      transaction_id: transaction.id,
+      status: 'real',
+      extracted_amount: extracted_amount !== undefined && extracted_amount !== '' ? Number(extracted_amount) : transaction.amount,
+      extracted_reference: extracted_reference !== undefined ? (extracted_reference || null) : (transaction.reference_number || null),
+      extracted_sender: extracted_sender !== undefined ? (extracted_sender || null) : (transaction.sender_name || null),
+      extracted_date: parseDateInput(extracted_date) || transaction.transaction_date || new Date().toISOString(),
+      whatsapp_from: 'manual',
+      response_text: 'Confirmación manual desde Ingresos',
+      notes: notes || 'Confirmado manualmente desde Ingresos',
+    };
+
+    let comprobanteImageUrl = null;
+    if (comprobante_base64) {
+      try {
+        comprobanteImageUrl = await uploadManualReceipt({
+          companyId,
+          transactionId: transaction.id,
+          base64: comprobante_base64,
+          filename: comprobante_filename,
+        });
+      } catch (uploadErr) {
+        return res.status(500).json({ error: uploadErr.message });
+      }
+      verificationPayload.comprobante_image_url = comprobanteImageUrl;
+    }
+
+    const { data: existingVerification } = await supabaseAdmin
+      .from('verifications')
+      .select('id')
+      .eq('transaction_id', transaction.id)
+      .maybeSingle();
+
+    let verification;
+    if (existingVerification?.id) {
+      const { data, error } = await supabaseAdmin
+        .from('verifications')
+        .update(verificationPayload)
+        .eq('id', existingVerification.id)
+        .select('*, employees(name), transactions(*)')
+        .single();
+      if (error) return res.status(500).json({ error: error.message });
+      verification = data;
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from('verifications')
+        .insert(verificationPayload)
+        .select('*, employees(name), transactions(*)')
+        .single();
+      if (error) return res.status(500).json({ error: error.message });
+      verification = data;
+    }
+
+    const { error: updateTxErr } = await supabaseAdmin
+      .from('transactions')
+      .update({
+        status: 'confirmed',
+        reference_number: verificationPayload.extracted_reference || transaction.reference_number || null,
+        sender_name: verificationPayload.extracted_sender || transaction.sender_name || null,
+        transaction_date: verificationPayload.extracted_date || transaction.transaction_date,
+      })
+      .eq('id', transaction.id);
+
+    if (updateTxErr) return res.status(500).json({ error: updateTxErr.message });
+
+    return res.status(200).json({ ok: true, verification });
   }
 
   if (req.method === 'PATCH') {

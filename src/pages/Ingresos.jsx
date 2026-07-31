@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import {
   TrendingUp, DollarSign, Clock, CheckCircle2, ChevronLeft,
-  ChevronRight, RefreshCw, Search, SlidersHorizontal, X, Mail, MessageSquare
+  ChevronRight, RefreshCw, Search, SlidersHorizontal, X, Mail, MessageSquare,
+  PlusCircle, Upload, FileText
 } from 'lucide-react';
 
 function SourceBadge({ source }) {
@@ -38,6 +39,20 @@ function fmtTime(s) {
 function initials(name) {
   if (!name) return '?';
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+function toDateTimeLocal(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function fromDateTimeLocal(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 const STATUS_CFG = {
@@ -103,11 +118,205 @@ function Pagination({ page, total, pageSize, onChange }) {
   );
 }
 
+function SelectField({ label, value, onChange, children }) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-slate-500 mb-1 block">{label}</label>
+      <select className="input w-full" value={value} onChange={onChange}>
+        {children}
+      </select>
+    </div>
+  );
+}
+
+function ManualConfirmModal({ transaction, onClose, onSaved }) {
+  const [amount, setAmount] = useState('');
+  const [reference, setReference] = useState('');
+  const [sender, setSender] = useState('');
+  const [dateValue, setDateValue] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [locationId, setLocationId] = useState('');
+  const [notes, setNotes] = useState('');
+  const [file, setFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const { data: employeesData } = useQuery({
+    queryKey: ['ingresos-manual-employees'],
+    queryFn: () => api('/api/employees'),
+    enabled: !!transaction,
+  });
+
+  const { data: locationsData } = useQuery({
+    queryKey: ['ingresos-manual-locations'],
+    queryFn: () => api('/api/employees', { query: { resource: 'locations' } }),
+    enabled: !!transaction,
+  });
+
+  const employees = employeesData?.items || [];
+  const locations = locationsData?.items || [];
+
+  useEffect(() => {
+    if (!transaction) return;
+    setAmount(transaction.amount != null ? String(transaction.amount) : '');
+    setReference(transaction.reference_number || '');
+    setSender(transaction.sender_name || '');
+    setDateValue(toDateTimeLocal(transaction.transaction_date));
+    setEmployeeId('');
+    setLocationId('');
+    setNotes('Confirmado manualmente desde Ingresos');
+    setFile(null);
+    setError('');
+  }, [transaction]);
+
+  async function fileToDataUrl(selectedFile) {
+    if (!selectedFile) return null;
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+      reader.readAsDataURL(selectedFile);
+    });
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError('');
+    try {
+      const body = {
+        transaction_id: transaction.id,
+        extracted_amount: amount === '' ? null : Number(amount),
+        extracted_reference: reference.trim() || null,
+        extracted_sender: sender.trim() || null,
+        extracted_date: fromDateTimeLocal(dateValue),
+        employee_id: employeeId || null,
+        location_id: locationId || null,
+        notes: notes.trim() || 'Confirmado manualmente desde Ingresos',
+      };
+
+      if (file) {
+        body.comprobante_base64 = await fileToDataUrl(file);
+        body.comprobante_filename = file.name;
+      }
+
+      await api('/api/verifications', { method: 'POST', body });
+      await onSaved();
+    } catch (err) {
+      setError(err.message || 'No se pudo confirmar el pago');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!transaction) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm grid place-items-center p-3" onClick={onClose}>
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/70">
+          <div>
+            <div className="text-xs uppercase tracking-widest text-emerald-700 font-semibold">Confirmación manual</div>
+            <h3 className="text-lg font-semibold text-slate-900">Registrar comprobante sin WhatsApp</h3>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/70 text-slate-500"><X size={18} /></button>
+        </div>
+
+        <div className="p-5 overflow-y-auto space-y-4">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 text-sm text-slate-700">
+            <div className="font-medium text-slate-900 mb-1">Transacción seleccionada</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div><span className="text-slate-400">Remitente:</span> {transaction.sender_name || '—'}</div>
+              <div><span className="text-slate-400">Monto:</span> {fmtMoney(transaction.amount)}</div>
+              <div><span className="text-slate-400">Referencia:</span> {transaction.reference_number || '—'}</div>
+              <div><span className="text-slate-400">Fecha:</span> {fmtDate(transaction.transaction_date)} {fmtTime(transaction.transaction_date)}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Monto</label>
+              <input className="input w-full" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Fecha / hora</label>
+              <input className="input w-full" type="datetime-local" value={dateValue} onChange={e => setDateValue(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Referencia</label>
+              <input className="input w-full" value={reference} onChange={e => setReference(e.target.value)} placeholder="Referencia o comprobante" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Remitente</label>
+              <input className="input w-full" value={sender} onChange={e => setSender(e.target.value)} placeholder="Nombre de quien pagó" />
+            </div>
+            <SelectField
+              label="Empleado responsable"
+              value={employeeId}
+              onChange={(e) => {
+                const nextEmployeeId = e.target.value;
+                setEmployeeId(nextEmployeeId);
+                const matched = employees.find(emp => emp.id === nextEmployeeId);
+                if (matched?.location_id) setLocationId(matched.location_id);
+              }}
+            >
+              <option value="">Sin asignar</option>
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name}{emp.whatsapp_number ? ` · ${emp.whatsapp_number}` : ''}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField label="Sede" value={locationId} onChange={e => setLocationId(e.target.value)}>
+              <option value="">Sin asignar</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}{loc.city ? ` — ${loc.city}` : ''}
+                </option>
+              ))}
+            </SelectField>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-slate-500 mb-1 block">Notas</label>
+            <textarea className="input w-full min-h-[90px]" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Detalle interno de la confirmación manual" />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-slate-500 mb-1 block">Adjuntar comprobante opcional</label>
+            <label className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 px-4 py-3 cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/40 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-slate-100 grid place-items-center text-slate-500"><Upload size={16} /></div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-slate-800">{file ? file.name : 'Subir imagen o PDF del comprobante'}</div>
+                <div className="text-xs text-slate-400">Opcional. Se guardará en Verificaciones.</div>
+              </div>
+              <input type="file" accept="image/*,.pdf" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
+            </label>
+          </div>
+
+          {error && <div className="rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3 border border-red-100">{error}</div>}
+        </div>
+
+        <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50">
+          <div className="text-xs text-slate-400 flex items-center gap-1.5"><FileText size={13} /> Se creará una verificación real y la transacción quedará confirmada.</div>
+          <div className="flex gap-2">
+            <button className="btn btn-ghost text-sm" onClick={onClose} disabled={saving}>Cancelar</button>
+            <button className="btn btn-primary text-sm flex items-center gap-1.5" onClick={handleSave} disabled={saving}>
+              {saving ? <span className="w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" /> : <PlusCircle size={15} />}
+              {saving ? 'Guardando…' : 'Confirmar pago'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Ingresos() {
   const [filters, setFilters] = useState({ from: '', to: '', min_amount: '', max_amount: '', status: '', sender: '' });
   const [applied, setApplied] = useState({});
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [manualTx, setManualTx] = useState(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['ingresos', applied, page],
@@ -170,6 +379,13 @@ export default function Ingresos() {
           iconBg="bg-emerald-50" iconColor="text-emerald-600" />
         <KpiCard Icon={Clock} label="Pendientes de verificar" value={stats?.pendingCount ?? '—'}
           sub="Sin comprobante recibido" iconBg="bg-amber-50" iconColor="text-amber-500" />
+      </div>
+
+      <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800 flex items-start gap-2">
+        <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+        <div>
+          Si un pago quedó sin WhatsApp o sin OCR, puedes confirmarlo manualmente desde esta pantalla y quedará en Verificaciones.
+        </div>
       </div>
 
       {/* Filtros */}
@@ -287,7 +503,17 @@ export default function Ingresos() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className="font-semibold text-emerald-700 text-base">{fmtMoney(t.amount)}</span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="font-semibold text-emerald-700 text-base">{fmtMoney(t.amount)}</span>
+                    {t.status === 'pending' && (
+                      <button
+                        onClick={() => setManualTx(t)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
+                      >
+                        <CheckCircle2 size={12} /> Confirmar manual
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -329,6 +555,14 @@ export default function Ingresos() {
                   <SourceBadge source={t.source} />
                   <StatusBadge status={t.status} />
                 </div>
+                {t.status === 'pending' && (
+                  <button
+                    onClick={() => setManualTx(t)}
+                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
+                  >
+                    <CheckCircle2 size={12} /> Confirmar manual
+                  </button>
+                )}
               </div>
             </div>
             {(t.raw_snippet || t.raw_subject) && (
@@ -340,6 +574,17 @@ export default function Ingresos() {
 
       {/* Paginación */}
       <Pagination page={page} total={data?.total || 0} pageSize={data?.pageSize || 25} onChange={setPage} />
+
+      {manualTx && (
+        <ManualConfirmModal
+          transaction={manualTx}
+          onClose={() => setManualTx(null)}
+          onSaved={async () => {
+            setManualTx(null);
+            await refetch();
+          }}
+        />
+      )}
     </div>
   );
 }
