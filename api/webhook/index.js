@@ -12,6 +12,7 @@ import { supabaseAdmin }            from '../../lib/supabase.js';
 import { sendMessage, downloadMedia, sendPaymentNotification } from '../../lib/whatsapp.js';
 import { extractComprobanteData }   from '../../lib/groq.js';
 import { matchTransaction, buildResponseMessage } from '../../lib/matcher.js';
+import { reconcilePendingVerifications } from '../../lib/reconcilePendingVerifications.js';
 import { checkVerificationLimit }   from '../../lib/subscription.js';
 import { parseBankSms }             from '../../lib/smsParser.js';
 import kommoHandler                 from '../../lib/kommo-webhook.js';
@@ -439,7 +440,7 @@ async function handleWhatsApp(req, res) {
         ? rawContacts.filter(c => c?.active && c?.number)
         : [];
 
-      if (contacts.length > 0) {
+      if (contacts.length > 0 && status !== 'pending') {
         const fmtDate = transaction?.transaction_date
           ? new Date(transaction.transaction_date).toLocaleString('es-CO', {
               timeZone: 'America/Bogota', day: '2-digit', month: '2-digit',
@@ -474,7 +475,8 @@ async function handleWhatsApp(req, res) {
       comprobante_image_url: path,
       whatsapp_message_id: wamid,
       whatsapp_from: fromE164,
-      response_text: responseText
+      response_text: responseText,
+      notes: status === 'pending' ? 'esperando notificacion bancaria o SMS backup' : null
     });
 
     return res.status(200).json({ received: true });
@@ -670,6 +672,12 @@ async function handleSms(req, res) {
   if (insertErr) {
     console.error('[sms-webhook] insert error:', insertErr);
     return res.status(500).json({ error: insertErr.message });
+  }
+
+  try {
+    await reconcilePendingVerifications({ companyId, source: 'sms' });
+  } catch (reconcileErr) {
+    console.error('[sms-webhook] reconcile error:', reconcileErr.message);
   }
 
   console.log(`[sms-webhook] ok company=${companyId} amount=${parsed.amount} ref=${parsed.reference} status=${matchStatus}`);
