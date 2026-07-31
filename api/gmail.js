@@ -20,6 +20,16 @@ function checkSecret(req) {
   return provided === secret;
 }
 
+function checkPushSecret(req) {
+  const secret = process.env.GMAIL_PUSH_SECRET;
+  if (!secret) return true;
+  const provided =
+    req.query.token ||
+    req.headers['x-gmail-push-secret'] ||
+    (req.headers['authorization'] || '').replace('Bearer ', '');
+  return provided === secret;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -28,7 +38,8 @@ export default async function handler(req, res) {
 
   // ── PUSH (Pub/Sub) ────────────────────────────────────────────────────────
   if (action === 'push') {
-    if (!checkSecret(req)) return res.status(401).json({ error: 'unauthorized' });
+    // Gmail Pub/Sub no envía CRON_SECRET; usa GMAIL_PUSH_SECRET solo si está configurado.
+    if (!checkPushSecret(req)) return res.status(401).json({ error: 'unauthorized' });
     if (req.method !== 'POST') return res.status(405).end();
     try {
       const envelope = req.body;
