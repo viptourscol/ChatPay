@@ -487,8 +487,15 @@ async function handleWhatsApp(req, res) {
 // ─── SMS Backup ───────────────────────────────────────────────────────────────
 async function handleSms(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+
+  const normalizeToken = (value) => String(value || '').trim().replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '');
   const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const token =
+    normalizeToken(authHeader) ||
+    normalizeToken(req.headers['x-sms-token']) ||
+    normalizeToken(req.query.token) ||
+    normalizeToken(req.body?.token);
+
   if (!token) return res.status(401).json({ error: 'Token requerido' });
 
   // Validar formato UUID antes de hacer la query (evita error 500 de Supabase)
@@ -499,7 +506,7 @@ async function handleSms(req, res) {
   let bodyText, bodySource, bodyReceivedAt;
   const ct = req.headers['content-type'] || '';
   if (ct.includes('application/json')) {
-    bodyText       = req.body?.text;
+    bodyText       = req.body?.text || req.body?.message || req.body?.sms || req.body?.input;
     bodySource     = req.body?.source || 'ios';
     bodyReceivedAt = req.body?.received_at;
   } else {
@@ -507,6 +514,16 @@ async function handleSms(req, res) {
     bodyText   = raw;
     bodySource = 'ios';
   }
+
+  if (typeof bodyText !== 'string' && bodyText !== null && bodyText !== undefined) {
+    bodyText = String(bodyText);
+  }
+  bodyText = (bodyText || '').trim();
+
+  const allowedSources = new Set(['android', 'ios', 'manual']);
+  bodySource = String(bodySource || 'ios').toLowerCase().trim();
+  if (!allowedSources.has(bodySource)) bodySource = 'ios';
+
   if (!bodyText) return res.status(400).json({ error: 'text requerido' });
 
   // Auth: buscar empresa por token
@@ -524,13 +541,17 @@ async function handleSms(req, res) {
 
   // Si no parsea como SMS bancario, guardar como ignorado y responder
   if (!parsed) {
-    await supabaseAdmin.from('transaction_sms').insert({
+    const { error: ignoredErr } = await supabaseAdmin.from('transaction_sms').insert({
       company_id: companyId,
       raw_text: bodyText,
       received_at: bodyReceivedAt || new Date().toISOString(),
       source: bodySource,
       status: 'ignored'
     });
+    if (ignoredErr) {
+      console.error('[sms-webhook] insert ignored error:', ignoredErr.message, ignoredErr.details);
+      return res.status(500).json({ error: ignoredErr.message });
+    }
     return res.status(200).json({ ok: true, status: 'ignored' });
   }
 
@@ -553,7 +574,7 @@ async function handleSms(req, res) {
       });
       if (egresoErr) console.error('[sms-webhook] error insertando egreso:', egresoErr.message, egresoErr.details);
     }
-    await supabaseAdmin.from('transaction_sms').insert({
+    const { error: smsEgresoErr } = await supabaseAdmin.from('transaction_sms').insert({
       company_id: companyId,
       raw_text: bodyText,
       bank: parsed.bank,
@@ -563,6 +584,10 @@ async function handleSms(req, res) {
       source: bodySource,
       status: 'egreso'
     });
+    if (smsEgresoErr) {
+      console.error('[sms-webhook] insert egreso error:', smsEgresoErr.message, smsEgresoErr.details);
+      return res.status(500).json({ error: smsEgresoErr.message });
+    }
     console.log(`[sms-webhook] egreso company=${companyId} amount=${parsed.amount}`);
     return res.status(200).json({ ok: true, status: 'egreso' });
   }
