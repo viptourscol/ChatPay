@@ -5,7 +5,7 @@ import {
   Building2, CheckCircle2, XCircle, RefreshCw, Clock, Crown,
   Search, ChevronDown, ChevronUp, Users, ShieldCheck,
   AlertTriangle, X, Banknote, Pencil, Ban,
-  BadgeDollarSign,
+  BadgeDollarSign, Info,
 } from 'lucide-react';
 
 /* ─── Constantes ─────────────────────────────────────────── */
@@ -95,6 +95,51 @@ function StatCard({ icon: Icon, label, value, sub, color = 'brand' }) {
         <p className="text-xs text-slate-500 font-medium truncate">{label}</p>
         <p className={`${fontSize} font-bold text-slate-800 leading-tight break-all`}>{value}</p>
         {sub && <p className="text-xs text-slate-400">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+function BankHealthCard({ data, isLoading }) {
+  const mode = data?.mode === 'intermittent' ? 'Intermitencia bancaria' : 'Disponible';
+  const badgeCls = data?.mode === 'intermittent'
+    ? 'bg-amber-100 text-amber-800 border-amber-200'
+    : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+  return (
+    <div className="card border border-amber-200 bg-amber-50/70">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 grid place-items-center shrink-0">
+            <Info size={18} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Estado global WhatsApp (Info/About)</p>
+            <p className="text-xs text-amber-700">Solo visible para super admin. Indica el estado sincronizado del About en WhatsApp.</p>
+          </div>
+        </div>
+        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${badgeCls}`}>
+          {isLoading ? 'Cargando…' : mode}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-sm">
+        <div className="rounded-xl bg-white/80 border border-amber-100 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Razón</div>
+          <div className="font-medium text-slate-800">{data?.reason || '—'}</div>
+        </div>
+        <div className="rounded-xl bg-white/80 border border-amber-100 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Desde</div>
+          <div className="font-medium text-slate-800">{data?.since ? new Date(data.since).toLocaleString('es-CO') : '—'}</div>
+        </div>
+        <div className="rounded-xl bg-white/80 border border-amber-100 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Control manual</div>
+          <div className="font-medium text-slate-800">{data?.manual_override ? 'Activo' : 'Automático'}</div>
+        </div>
+        <div className="rounded-xl bg-white/80 border border-amber-100 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Mensaje</div>
+          <div className="font-medium text-slate-800 break-words">{data?.manual_message || 'Mensaje por defecto del sistema'}</div>
+        </div>
       </div>
     </div>
   );
@@ -449,6 +494,11 @@ export default function Admin() {
     queryFn:  () => api('/api/admin/companies'),
   });
 
+  const { data: bankHealth, isLoading: bankHealthLoading, refetch: refetchBankHealth } = useQuery({
+    queryKey: ['admin-bank-health'],
+    queryFn: () => api('/api/admin/companies', { query: { action: 'bank-health' } }),
+  });
+
   const mutation = useMutation({
     mutationFn: (body) => api('/api/admin/companies', { method: 'PATCH', body }),
     onSuccess:  () => { qc.invalidateQueries({ queryKey: ['admin-companies'] }); setEditing(null); },
@@ -544,6 +594,8 @@ export default function Admin() {
         <StatCard icon={AlertTriangle}   label="Trial vencido"  value={stats.expired}         color="rose"    />
         <StatCard icon={BadgeDollarSign} label="MRR estimado"   value={fmtPrice(stats.mrr)}   color="purple"  sub="clientes activos" />
       </div>
+
+      <BankHealthCard data={bankHealth} isLoading={bankHealthLoading} />
 
       {/* Filtros */}
       <div className="card py-3 px-4 flex flex-wrap items-center gap-3">

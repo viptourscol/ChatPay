@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { requireUser } from '../../lib/auth.js';
+import { readSystemState, writeSystemState } from '../../lib/systemState.js';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 
@@ -42,6 +43,45 @@ export default async function handler(req, res) {
     const { data, error, count } = await q;
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ data: data || [], total: count || 0, page: parseInt(page), pageSize });
+  }
+
+  if (req.query.action === 'bank-health') {
+    if (req.method === 'GET') {
+      try {
+        const state = await readSystemState([
+          'bank_health_mode',
+          'bank_health_reason',
+          'bank_health_since',
+          'bank_health_manual_override',
+          'bank_health_manual_message'
+        ]);
+        return res.json({
+          enabled: true,
+          mode: state.bank_health_mode || 'available',
+          reason: state.bank_health_reason || 'init',
+          since: state.bank_health_since || null,
+          manual_override: state.bank_health_manual_override === 'true',
+          manual_message: state.bank_health_manual_message || ''
+        });
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    }
+
+    if (req.method === 'PUT') {
+      const { mode, manual_override, manual_message } = req.body || {};
+      const nowIso = new Date().toISOString();
+      await writeSystemState({
+        bank_health_mode: mode || 'available',
+        bank_health_reason: manual_override ? 'manual_override' : 'manual_release',
+        bank_health_since: nowIso,
+        bank_health_manual_override: String(!!manual_override),
+        bank_health_manual_message: typeof manual_message === 'string' ? manual_message.trim() : ''
+      });
+      return res.json({ ok: true });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   // GET /api/admin/companies — listar todas las empresas con stats básicas

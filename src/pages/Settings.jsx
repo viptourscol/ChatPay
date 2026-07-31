@@ -30,7 +30,6 @@ const TABS = [
 ];
 
 const WEBHOOK_URL = 'https://chat-pay-six.vercel.app/api/webhook?provider=sms';
-
 function CopyBtn({ text, label = 'Copiar' }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -255,8 +254,7 @@ function TabEmpresa() {
         address: data.address || '',
         phone: data.phone || '',
         bancolombia_email: data.bancolombia_email || '',
-        notification_whatsapp: Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : [],
-        bank_health: data.bank_health || null
+        notification_whatsapp: Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : []
       });
     }
   }, [data]);
@@ -272,13 +270,12 @@ function TabEmpresa() {
         address: result.address || '',
         phone: result.phone || '',
         bancolombia_email: result.bancolombia_email || '',
-        notification_whatsapp: Array.isArray(result.notification_whatsapp) ? result.notification_whatsapp : [],
-        bank_health: result.bank_health || null
+        notification_whatsapp: Array.isArray(result.notification_whatsapp) ? result.notification_whatsapp : []
       });
       qc.invalidateQueries({ queryKey: ['settings', companyKey] });
       setSaved(true);
       setSaveError(null);
-      setSaveWarning(result.bank_health_warning || null);
+      setSaveWarning(null);
       setTimeout(() => setSaved(false), 3000);
     },
     onError: (err) => {
@@ -288,14 +285,6 @@ function TabEmpresa() {
   });
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const setBankHealth = (patch) => setForm((f) => ({
-    ...f,
-    bank_health: {
-      ...(f.bank_health || {}),
-      ...patch
-    }
-  }));
-
   function copyId() {
     if (data?.id) navigator.clipboard.writeText(data.id);
   }
@@ -319,60 +308,17 @@ function TabEmpresa() {
               title="Copiar ID"
             >
               <Clipboard size={15} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Email Bancolombia para routing automático */}
-      <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 mb-6">
-        <div className="text-sm font-medium text-emerald-700 mb-0.5 flex items-center gap-1.5">
-          <Landmark size={14} /> Email de alertas Bancolombia
-        </div>
-        <div className="text-xs text-emerald-600 mb-2">
-          Correo donde Bancolombia envía las notificaciones de tu cuenta. ChatPay lo usa para identificar tus pagos automáticamente.
-        </div>
-        <input
-          className="input w-full bg-white"
-          value={form?.bancolombia_email || ''}
-          onChange={(e) => set('bancolombia_email', e.target.value)}
-          placeholder="Ej: mipago@gmail.com"
-          type="email"
-        />
-        <p className="text-xs text-emerald-500 mt-2">
-          Plan actual: <strong className="capitalize">{data.plan || 'free'}</strong> · Máx. {data.max_employees ?? 3} empleados
-        </p>
-      </div>
-
-      {/* Números de notificación WhatsApp */}
-      <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4 mb-6">
-        <div className="flex items-center justify-between mb-1">
-          <div className="text-sm font-medium text-indigo-700 flex items-center gap-1.5">
-            <Smartphone size={14} /> Números de notificación WhatsApp
-          </div>
-          {form.notification_whatsapp.some(c => c.active) && (
-            <span className="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">
-              {form.notification_whatsapp.filter(c => c.active).length} activo{form.notification_whatsapp.filter(c => c.active).length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-indigo-600 mb-3">
-          Cuando se verifique un pago, ChatPay enviará un resumen a los números activos. Puedes pausar alguno sin eliminarlo.
-        </p>
-
-        <div className="space-y-2 mb-3">
-          {form.notification_whatsapp.length === 0 && (
-            <p className="text-xs text-indigo-400 italic text-center py-2">Sin números configurados</p>
-          )}
-              {form.notification_whatsapp.map((contact, idx) => {
-            const maxNums = planWhatsappMax(data?.plan);
-            const activeCount = form.notification_whatsapp.filter(c => c.active).length;
-            const canActivate = contact.active || activeCount < maxNums;
-            return (
-            <div key={idx} className="flex items-center gap-2 bg-white border border-indigo-100 rounded-lg px-3 py-2">
-              <input
-                className="flex-1 text-sm bg-transparent outline-none text-slate-700 placeholder-slate-400"
-                value={contact.number}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-slate-600 mb-1 block">Nombre de la Empresa</label>
+                  <input className="input w-full" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Ej: Mi Empresa SAS" />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-600 mb-1 block">NIT</label>
+                  <input className="input w-full" value={form.nit} onChange={(e) => set('nit', e.target.value)} placeholder="Ej: 1063302962" />
+                </div>
+              </div>
                 onChange={(e) => {
                   const next = [...form.notification_whatsapp];
                   next[idx] = { ...next[idx], number: e.target.value };
@@ -439,77 +385,6 @@ function TabEmpresa() {
           })()}
         </p>
       </div>
-
-      <div className="space-y-4">
-        {form.bank_health && (
-          <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-amber-800">Estado global WhatsApp (Info/About)</p>
-                <p className="text-xs text-amber-700">
-                  Visible para todos los usuarios de ChatPay en WhatsApp. Puedes forzar estado manual o dejar recuperación automática.
-                </p>
-              </div>
-              <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                form.bank_health.mode === 'intermittent'
-                  ? 'bg-amber-200 text-amber-900'
-                  : 'bg-emerald-200 text-emerald-800'
-              }`}>
-                {form.bank_health.mode === 'intermittent' ? 'Intermitencia' : 'Disponible'}
-              </span>
-            </div>
-
-            {!form.bank_health.enabled && (
-              <div className="text-xs text-amber-800 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2">
-                El control está temporalmente degradado (estado global no disponible). Puedes guardar igual y el sistema intentará sincronizar en el próximo ciclo.
-              </div>
-            )}
-
-            <label className="flex items-center gap-2 text-sm text-amber-900">
-              <input
-                type="checkbox"
-                checked={!!form.bank_health.manual_override}
-                onChange={(e) => setBankHealth({ manual_override: e.target.checked })}
-              />
-              Control manual activo
-            </label>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-amber-700 mb-1 block">Modo</label>
-                <select
-                  className="input w-full bg-white"
-                  value={form.bank_health.mode || 'available'}
-                  onChange={(e) => setBankHealth({ mode: e.target.value })}
-                >
-                  <option value="available">Disponible</option>
-                  <option value="intermittent">Intermitencia bancaria</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-amber-700 mb-1 block">Razón actual</label>
-                <input
-                  className="input w-full bg-slate-50"
-                  value={form.bank_health.reason || ''}
-                  readOnly
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-amber-700 mb-1 block">Mensaje custom (opcional)</label>
-              <input
-                className="input w-full bg-white"
-                placeholder="Ej: Intermitencia bancaria, algunas notificaciones pueden tardar"
-                value={form.bank_health.manual_message || ''}
-                onChange={(e) => setBankHealth({ manual_message: e.target.value })}
-              />
-              <p className="text-[11px] text-amber-700 mt-1">
-                Si está vacío, se usa el mensaje por defecto del sistema.
-              </p>
-            </div>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
