@@ -526,6 +526,25 @@ async function handleSms(req, res) {
   bodySource = String(bodySource || 'ios').toLowerCase().trim();
   if (!allowedSources.has(bodySource)) bodySource = 'ios';
 
+  // Validar y limpiar received_at: si es cadena con "/" o inválida, ignorar
+  if (bodyReceivedAt) {
+    const tsStr = String(bodyReceivedAt).trim();
+    if (tsStr.includes('/') || !/^\d+$/.test(tsStr)) {
+      bodyReceivedAt = null;
+    } else {
+      const ts = parseInt(tsStr, 10);
+      if (isNaN(ts) || ts <= 0 || ts > Date.now() + 60000) {
+        bodyReceivedAt = null;
+      } else {
+        try {
+          bodyReceivedAt = new Date(ts).toISOString();
+        } catch (e) {
+          bodyReceivedAt = null;
+        }
+      }
+    }
+  }
+
   if (!bodyText) return res.status(400).json({ error: 'text requerido' });
 
   // Auth: buscar empresa por token
