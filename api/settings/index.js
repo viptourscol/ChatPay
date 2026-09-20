@@ -12,15 +12,24 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim
 
 // ─── Notification Schedules Handlers ───────────────────────────────────────
 
-async function handleNotificationSchedulesGet(req, res, user) {
+async function handleNotificationSchedulesGet(req, res, user, impersonateId, isAdmin) {
   try {
-    const company = await getCompany(user.id);
-    if (!company) return res.status(401).json({ error: 'Unauthorized' });
+    let companyId = null;
+    
+    if (impersonateId && isAdmin) {
+      // Super admin impersonating another company
+      companyId = impersonateId;
+    } else {
+      // Regular user - get their own company
+      const company = await getCompany(user.id);
+      if (!company) return res.status(401).json({ error: 'Unauthorized' });
+      companyId = company.id;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('notification_schedules')
       .select('*')
-      .eq('company_id', company.id)
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -35,10 +44,19 @@ async function handleNotificationSchedulesGet(req, res, user) {
   }
 }
 
-async function handleNotificationSchedulesPost(req, res, user) {
+async function handleNotificationSchedulesPost(req, res, user, impersonateId, isAdmin) {
   try {
-    const company = await getCompany(user.id);
-    if (!company) return res.status(401).json({ error: 'Unauthorized' });
+    let companyId = null;
+    
+    if (impersonateId && isAdmin) {
+      // Super admin impersonating another company
+      companyId = impersonateId;
+    } else {
+      // Regular user - get their own company
+      const company = await getCompany(user.id);
+      if (!company) return res.status(401).json({ error: 'Unauthorized' });
+      companyId = company.id;
+    }
 
     const {
       frequency = 'daily',
@@ -79,7 +97,7 @@ async function handleNotificationSchedulesPost(req, res, user) {
     const { data, error } = await supabaseAdmin
       .from('notification_schedules')
       .insert({
-        company_id: company.id,
+        company_id: companyId,
         frequency,
         day_of_week,
         time_of_day,
@@ -98,7 +116,7 @@ async function handleNotificationSchedulesPost(req, res, user) {
       return res.status(500).json({ error: error.message });
     }
 
-    console.log(`[settings/notification-schedules] created schedule ${data.id} for company ${company.id}`);
+    console.log(`[settings/notification-schedules] created schedule ${data.id} for company ${companyId}`);
     return res.status(201).json(data);
   } catch (err) {
     console.error('[settings/notification-schedules] POST fatal:', err.message);
@@ -106,10 +124,19 @@ async function handleNotificationSchedulesPost(req, res, user) {
   }
 }
 
-async function handleNotificationSchedulesPatch(req, res, user) {
+async function handleNotificationSchedulesPatch(req, res, user, impersonateId, isAdmin) {
   try {
-    const company = await getCompany(user.id);
-    if (!company) return res.status(401).json({ error: 'Unauthorized' });
+    let companyId = null;
+    
+    if (impersonateId && isAdmin) {
+      // Super admin impersonating another company
+      companyId = impersonateId;
+    } else {
+      // Regular user - get their own company
+      const company = await getCompany(user.id);
+      if (!company) return res.status(401).json({ error: 'Unauthorized' });
+      companyId = company.id;
+    }
 
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id is required' });
@@ -170,10 +197,19 @@ async function handleNotificationSchedulesPatch(req, res, user) {
   }
 }
 
-async function handleNotificationSchedulesDelete(req, res, user) {
+async function handleNotificationSchedulesDelete(req, res, user, impersonateId, isAdmin) {
   try {
-    const company = await getCompany(user.id);
-    if (!company) return res.status(401).json({ error: 'Unauthorized' });
+    let companyId = null;
+    
+    if (impersonateId && isAdmin) {
+      // Super admin impersonating another company
+      companyId = impersonateId;
+    } else {
+      // Regular user - get their own company
+      const company = await getCompany(user.id);
+      if (!company) return res.status(401).json({ error: 'Unauthorized' });
+      companyId = company.id;
+    }
 
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id is required' });
@@ -223,26 +259,26 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
 
+  // Soporte de impersonación para super admin
+  const impersonateId = req.headers['x-impersonate-company'];
+  const isAdmin = ADMIN_EMAILS.includes((user.email || '').toLowerCase());
+  const impersonating = impersonateId && isAdmin;
+
   // Route to notification-schedules if resource param is set
   if (req.query.resource === 'notification-schedules') {
     switch (req.method) {
       case 'GET':
-        return handleNotificationSchedulesGet(req, res, user);
+        return handleNotificationSchedulesGet(req, res, user, impersonateId, isAdmin);
       case 'POST':
-        return handleNotificationSchedulesPost(req, res, user);
+        return handleNotificationSchedulesPost(req, res, user, impersonateId, isAdmin);
       case 'PATCH':
-        return handleNotificationSchedulesPatch(req, res, user);
+        return handleNotificationSchedulesPatch(req, res, user, impersonateId, isAdmin);
       case 'DELETE':
-        return handleNotificationSchedulesDelete(req, res, user);
+        return handleNotificationSchedulesDelete(req, res, user, impersonateId, isAdmin);
       default:
         return res.status(405).json({ error: 'Method not allowed' });
     }
   }
-
-  // Soporte de impersonación para super admin (solo lectura vía GET)
-  const impersonateId = req.headers['x-impersonate-company'];
-  const isAdmin = ADMIN_EMAILS.includes((user.email || '').toLowerCase());
-  const impersonating = impersonateId && isAdmin;
   const canManageBankHealth = isAdmin;
 
   // GET — obtener settings de la empresa
