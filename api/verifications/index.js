@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../lib/supabase.js';
 import { resolveCompany } from '../../lib/getCompany.js';
 import { sendAdminAlert, sendVerificationNotification } from '../../lib/whatsapp.js';
 import { checkAndIncrementAlertLimit } from '../../lib/subscription.js';
+import { processAllExpiredVerifications } from '../../lib/verificationExpiration.js';
 
 function safeFileName(name = 'comprobante') {
   return String(name)
@@ -269,7 +270,8 @@ export default async function handler(req, res) {
   }
 
   // ─── Acción: Expirar comprobantes pendientes después de 2 minutos sin conciliar ───
-  // Se ejecuta vía cron cada minuto. No requiere autenticación de usuario (es automático).
+  // Se ejecuta vía cron job diario/horario. Procesa tareas de expiración de DB.
+  // No requiere autenticación de usuario (es automático).
   if (req.query.action === 'expire-pending' && req.method === 'POST') {
     const secret = process.env.CRON_SECRET;
     if (secret && (req.headers['x-cron-secret'] || '').trim() !== secret.trim()) {
@@ -277,90 +279,15 @@ export default async function handler(req, res) {
     }
 
     try {
-      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-      const now = new Date().toISOString();
+      console.log('[expire-pending] Iniciando procesamiento de expiración');
       
-      console.log(`[expire-pending] buscando verificaciones pendientes desde hace 2 min`);
+      // Llamar función que procesa todas las tareas vencidas usando la tabla verification_expiration_tasks
+      const result = await processAllExpiredVerifications();
 
-      // Buscar verificaciones pendientes sin transaction_id hace 2+ minutos
-      const { data: stuckRows, error: queryErr } = await supabaseAdmin
-        .from('verifications')
-        .select('id, company_id, status, extracted_amount, extracted_reference, whatsapp_from, employee_id, employees(name)')
-        .eq('status', 'pending')
-        .is('transaction_id', null)
-        .lte('created_at', twoMinutesAgo)
-        .order('created_at', { ascending: true })
-        .limit(50);
-
-      if (queryErr) {
-        console.error(`[expire-pending] query error: ${queryErr.message}`);
-        return res.status(500).json({ error: queryErr.message });
-      }
-
-      console.log(`[expire-pending] encontradas ${(stuckRows || []).length} verificaciones stuck`);
-
-      let updated = 0, notified = 0, failed = 0;
-
-      for (const row of stuckRows || []) {
-        try {
-          // Marcar como 'fake' porque si la transacción fuera real, ya hubiera llegado SMS/email del banco
-          const { error: updateErr } = await supabaseAdmin
-            .from('verifications')
-            .update({
-              status: 'fake',
-              response_text: `Comprobante no pudo ser verificado con el banco. Posiblemente falso o con datos incorrectos.`,
-              notes: `[expired:cron] status=fake at ${now} - sin transacción después de 2 minutos`
-            })
-            .eq('id', row.id);
-
-          if (updateErr) {
-            console.error(`[expire-pending] update failed for ${row.id}: ${updateErr.message}`);
-            failed += 1;
-            continue;
-          }
-
-          updated += 1;
-          console.log(`[expire-pending] marcado como fake: ${row.id}`);
-
-          // Notificar al empleado con plantilla comprobante_rechazado
-          if (row.whatsapp_from) {
-            try {
-              const empleadoNombre = row.employees?.name || 'Empleado';
-              const montoFormato = row.extracted_amount ? `$${Number(row.extracted_amount).toLocaleString('es-CO')}` : '$0';
-              const referencia = row.extracted_reference || 'N/A';
-
-              await sendVerificationNotification(
-                row.whatsapp_from,
-                {
-                  status: 'fake',
-                  nombreEmpleado: empleadoNombre,
-                  montoFormato,
-                  nombreBanco: 'Banco',
-                  fechaTransaccion: '',
-                  referencia,
-                  razonRechazo: 'Comprobante no verificado por el banco. Posiblemente falso o datos incorrectos.'
-                },
-                { companyId: row.company_id, verificationId: row.id, messageType: 'verification_fake_timeout' }
-              );
-              notified += 1;
-              console.log(`[expire-pending] notificación enviada a ${row.whatsapp_from}`);
-            } catch (notifErr) {
-              console.error(`[expire-pending] notificación failed: ${notifErr.message}`);
-            }
-          }
-        } catch (err) {
-          console.error(`[expire-pending] error procesando ${row.id}:`, err.message);
-          failed += 1;
-        }
-      }
-
-      console.log(`[expire-pending] completado: updated=${updated} notified=${notified} failed=${failed}`);
+      console.log('[expire-pending] Procesamiento completo:', result);
       return res.json({
         ok: true,
-        checked: stuckRows?.length || 0,
-        updated,
-        notified,
-        failed
+        ...result
       });
     } catch (err) {
       console.error('[expire-pending] fatal error:', err.message, err.stack);
