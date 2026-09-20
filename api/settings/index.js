@@ -341,8 +341,8 @@ export default async function handler(req, res) {
     if (error) return res.status(500).json({ error: error.message });
 
     // Auto-deshabilitar números activos que excedan el límite del plan actual
-    const PLAN_MAX_GET = { free: 1, basico: 0, estandar: 1, pro: 2, empresarial: 2, enterprise: 2, business: 1 };
-    const maxActive = PLAN_MAX_GET[data.plan] ?? 0;
+    const PLAN_MAX_GET = { free: 1, basico: 1, estandar: 1, pro: 2, empresarial: 2, enterprise: 2, business: 1 };
+    const maxActive = PLAN_MAX_GET[data.plan] ?? 1;
     const contacts = Array.isArray(data.notification_whatsapp) ? data.notification_whatsapp : [];
     let activeCount = 0;
     let needsUpdate = false;
@@ -417,8 +417,8 @@ export default async function handler(req, res) {
     const plan = planData?.plan || 'basico';
     if (!targetId) targetId = planData?.id || null;
 
-    const PLAN_MAX = { free: 1, basico: 0, estandar: 1, pro: 2, empresarial: 2, enterprise: 2, business: 1 };
-    const maxNums = PLAN_MAX[plan] ?? 0;
+    const PLAN_MAX = { free: 1, basico: 1, estandar: 1, pro: 2, empresarial: 2, enterprise: 2, business: 1 };
+    const maxNums = PLAN_MAX[plan] ?? 1;
     const sliced = rawContacts.slice(0, Math.max(maxNums, rawContacts.length));
     let activeAllowed = maxNums;
     const notifContacts = sliced.map(c => {
