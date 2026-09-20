@@ -21,18 +21,7 @@ CREATE TABLE IF NOT EXISTS public.verification_expiration_tasks (
   updated_at TIMESTAMP DEFAULT NOW(),
   
   -- Constraints
-  CONSTRAINT valid_status CHECK (status IN ('pending', 'processed', 'skipped')),
-  CONSTRAINT unique_pending_per_verification CHECK (
-    -- Solo una tarea 'pending' por verificación activa
-    NOT (status = 'pending')
-    OR (verification_id, status) NOT IN (
-      SELECT verification_id, 'pending'
-      FROM public.verification_expiration_tasks
-      WHERE status = 'pending'
-      GROUP BY verification_id
-      HAVING COUNT(*) > 1
-    )
-  )
+  CONSTRAINT valid_status CHECK (status IN ('pending', 'processed', 'skipped'))
 );
 
 -- Índices para queries eficientes
