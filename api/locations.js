@@ -30,12 +30,11 @@ export default async function handler(req, res) {
       companyId = company.id;
     }
 
-    // Obtener todas las locations de la compañía
+    // Obtener todas las locations de la compañía (activas e inactivas para debugging)
     const { data, error } = await supabaseAdmin
       .from('company_locations')
       .select('id, name, city, address, is_active, created_at')
       .eq('company_id', companyId)
-      .eq('is_active', true)
       .order('created_at', { ascending: true });
 
     if (error) {
