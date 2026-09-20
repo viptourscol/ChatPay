@@ -10,6 +10,41 @@ import { getCompany } from '../../lib/getCompany.js';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 
+// ─── Locations Handler ────────────────────────────────────────────────────
+
+async function handleLocationsGet(req, res, user, impersonateId, isAdmin) {
+  try {
+    let companyId = null;
+
+    if (impersonateId && isAdmin) {
+      // Super admin impersonating another company
+      companyId = impersonateId;
+    } else {
+      // Regular user - get their own company
+      const company = await getCompany(user.id);
+      if (!company) return res.status(401).json({ error: 'Unauthorized' });
+      companyId = company.id;
+    }
+
+    // Obtener todas las locations de la compañía
+    const { data, error } = await supabaseAdmin
+      .from('company_locations')
+      .select('id, name, city, address, is_active, created_at')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('[settings/locations] GET error:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json(data || []);
+  } catch (err) {
+    console.error('[settings/locations] GET fatal:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── Notification Schedules Handlers ───────────────────────────────────────
 
 async function handleNotificationSchedulesGet(req, res, user, impersonateId, isAdmin) {
@@ -263,6 +298,14 @@ export default async function handler(req, res) {
   const impersonateId = req.headers['x-impersonate-company'];
   const isAdmin = ADMIN_EMAILS.includes((user.email || '').toLowerCase());
   const impersonating = impersonateId && isAdmin;
+
+  // Route to locations if resource param is set
+  if (req.query.resource === 'locations') {
+    if (req.method === 'GET') {
+      return handleLocationsGet(req, res, user, impersonateId, isAdmin);
+    }
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   // Route to notification-schedules if resource param is set
   if (req.query.resource === 'notification-schedules') {

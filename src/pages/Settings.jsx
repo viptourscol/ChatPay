@@ -811,12 +811,12 @@ function TabNotificaciones() {
     }
   });
 
-  // Cargar locations
+  // Cargar locations desde settings
   const { data: locations = [], error: locationsError } = useQuery({
     queryKey: ['locations', impersonating?.id],
     queryFn: async () => {
       console.log('[TabNotificaciones] Fetching locations for company:', impersonating?.id);
-      const result = await api('/api/locations');
+      const result = await api('/api/settings?resource=locations');
       console.log('[TabNotificaciones] Locations result:', result);
       return result;
     }
