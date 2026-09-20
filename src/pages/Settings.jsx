@@ -833,14 +833,13 @@ function TabNotificaciones() {
     }
   });
 
-  // Force refetch cuando cambia impersonating?.id
+  // Force refetch cuando cambia impersonating?.id o al montar el componente
   useEffect(() => {
-    if (impersonating?.id) {
-      console.log('[TabNotificaciones] Impersonating changed to:', impersonating.id);
-      qc.invalidateQueries({ queryKey: ['notification-schedules', impersonating.id] });
-      qc.invalidateQueries({ queryKey: ['locations', impersonating.id] });
-      qc.invalidateQueries({ queryKey: ['settings', impersonating.id] });
-    }
+    const companyId = impersonating?.id || 'default-user';
+    console.log('[TabNotificaciones] Mount/impersonate effect - companyId:', companyId);
+    qc.invalidateQueries({ queryKey: ['notification-schedules', impersonating?.id] });
+    qc.invalidateQueries({ queryKey: ['locations', impersonating?.id] });
+    qc.invalidateQueries({ queryKey: ['settings', impersonating?.id] });
   }, [impersonating?.id, qc]);
 
   const notificationPhones = Array.isArray(settings.notification_whatsapp)
