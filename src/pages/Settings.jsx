@@ -829,6 +829,11 @@ function TabNotificaciones() {
       console.log('[TabNotificaciones] Fetching settings for company:', impersonating?.id);
       const result = await api('/api/settings');
       console.log('[TabNotificaciones] Settings result:', result);
+      console.log('[TabNotificaciones] notification_whatsapp:', result?.notification_whatsapp);
+      console.log('[TabNotificaciones] notification_whatsapp type:', Array.isArray(result?.notification_whatsapp) ? 'array' : typeof result?.notification_whatsapp);
+      if (Array.isArray(result?.notification_whatsapp)) {
+        console.log('[TabNotificaciones] notification_whatsapp items:', result.notification_whatsapp.map(n => ({ phone: n.phone, active: n.active })));
+      }
       return result;
     }
   });
@@ -845,6 +850,10 @@ function TabNotificaciones() {
   const notificationPhones = Array.isArray(settings.notification_whatsapp)
     ? settings.notification_whatsapp.filter(n => n.active).map(n => n.phone)
     : [];
+
+  useEffect(() => {
+    console.log('[TabNotificaciones] notificationPhones calculated:', notificationPhones);
+  }, [notificationPhones]);
 
   // Debug: mostrar errores si las queries fallan
   useEffect(() => {
