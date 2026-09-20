@@ -14,15 +14,31 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Key');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  const user = await requireUser(req, res);
-  if (!user) return;
+  // Validar autenticación: JWT o Admin Key
+  const authHeader = req.headers.authorization || '';
+  const adminKey = req.headers['x-admin-key'] || req.query.admin_key;
+  const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'dev-only-test-key';
+  
+  let user = null;
+  let isAdminKey = false;
 
-  // Verificar que el usuario es admin
-  if (!ADMIN_EMAILS.includes(user.email?.toLowerCase())) {
-    return res.status(403).json({ error: 'Acceso restringido.' });
+  // Opción 1: Admin Key (para scripts/cron)
+  if (adminKey && adminKey === ADMIN_SECRET_KEY) {
+    isAdminKey = true;
+    user = { email: 'admin-key-user', id: 'admin-key' };
+  } 
+  // Opción 2: JWT (para usuarios logueados)
+  else {
+    user = await requireUser(req, res);
+    if (!user) return;
+
+    // Verificar que el usuario es admin
+    if (!ADMIN_EMAILS.includes(user.email?.toLowerCase())) {
+      return res.status(403).json({ error: 'Acceso restringido.' });
+    }
   }
 
   // Subrutas: ?action=user-info&companyId=...
