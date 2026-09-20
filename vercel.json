@@ -25,7 +25,7 @@
     },
     {
       "path": "/api/verifications?action=expire-pending",
-      "schedule": "*/1 * * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/scheduled-notifications",
