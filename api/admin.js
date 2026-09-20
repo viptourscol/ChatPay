@@ -1,6 +1,13 @@
-import { supabaseAdmin } from '../../lib/supabase.js';
-import { requireUser } from '../../lib/auth.js';
-import { readSystemState, writeSystemState } from '../../lib/systemState.js';
+/**
+ * api/admin.js
+ * 
+ * Admin-only endpoints for super-admin operations
+ * Consolidated from api/admin/companies.js
+ */
+
+import { supabaseAdmin } from '../lib/supabase.js';
+import { requireUser } from '../lib/auth.js';
+import { readSystemState, writeSystemState } from '../lib/systemState.js';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 
@@ -84,7 +91,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // GET /api/admin/companies — listar todas las empresas con stats básicas
+  // GET /api/admin — listar todas las empresas con stats básicas
   if (req.method === 'GET') {
     const { data, error } = await supabaseAdmin
       .from('companies')
@@ -105,7 +112,7 @@ export default async function handler(req, res) {
     return res.json(data.map(c => ({ ...c, user_email: emailMap[c.user_id] || null })));
   }
 
-  // PATCH /api/admin/companies — actualizar plan / is_active de una empresa
+  // PATCH /api/admin — actualizar plan / is_active de una empresa
   if (req.method === 'PATCH') {
     const { id, plan, max_employees, max_verifications_month, max_bank_accounts, subscription_status, trial_ends_at, subscription_expires_at, is_active } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id requerido' });
@@ -150,7 +157,7 @@ export default async function handler(req, res) {
 export async function userInfoHandler(req, res, user) {
   if (!user) {
     // Llamado directo (desde server.js)
-    const { requireUser: ru } = await import('../../lib/auth.js');
+    const { requireUser: ru } = await import('../lib/auth.js');
     user = await ru(req, res);
     if (!user) return;
     if (!ADMIN_EMAILS.includes(user.email?.toLowerCase())) {

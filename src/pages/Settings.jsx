@@ -802,7 +802,7 @@ function TabNotificaciones() {
   
   const { data: schedules = [], isLoading } = useQuery({
     queryKey: ['notification-schedules', impersonating?.id],
-    queryFn: () => api('/api/notification-schedules')
+    queryFn: () => api('/api/settings?resource=notification-schedules')
   });
 
   const { data: locations = [] } = useQuery({
@@ -823,7 +823,7 @@ function TabNotificaciones() {
   const [showForm, setShowForm] = useState(false);
 
   const createMutation = useMutation({
-    mutationFn: (data) => api('/api/notification-schedules', {
+    mutationFn: (data) => api('/api/settings?resource=notification-schedules', {
       method: 'POST',
       body: {
         ...data,
@@ -848,9 +848,8 @@ function TabNotificaciones() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }) => api(`/api/notification-schedules`, {
+    mutationFn: ({ id, ...data }) => api(`/api/settings?resource=notification-schedules&id=${id}`, {
       method: 'PATCH',
-      query: { id },
       body: data
     }),
     onSuccess: () => {
@@ -861,9 +860,8 @@ function TabNotificaciones() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => api(`/api/notification-schedules`, {
-      method: 'DELETE',
-      query: { id }
+    mutationFn: (id) => api(`/api/settings?resource=notification-schedules&id=${id}`, {
+      method: 'DELETE'
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notification-schedules'] });
