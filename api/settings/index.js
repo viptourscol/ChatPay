@@ -8,7 +8,7 @@ import {
 import { readSystemState, writeSystemState } from '../../lib/systemState.js';
 import { getCompany } from '../../lib/getCompany.js';
 import {
-  getLocationPendingVerifications,
+  getPendingTransactions,
   formatNotificationMessage
 } from '../../lib/scheduledNotifications.js';
 import { sendMessage } from '../../lib/whatsapp.js';
@@ -417,15 +417,12 @@ async function handleSendTestNotification(req, res, user, impersonateId, isAdmin
       schedule = data;
     }
 
-    // Obtener comprobantes pendientes
-    console.log(`[send-test-notification] Getting pending verifications for company ${companyId}`);
-    const locationStats = await getLocationPendingVerifications(
-      companyId,
-      schedule.include_all_locations ? null : schedule.location_ids
-    );
+    // Obtener ingresos pendientes
+    console.log(`[send-test-notification] Getting pending transactions for company ${companyId}`);
+    const transactions = await getPendingTransactions(companyId);
 
     // Formatear mensaje
-    const message = formatNotificationMessage(locationStats);
+    const message = formatNotificationMessage(transactions);
 
     // Enviar por WhatsApp
     console.log(`[send-test-notification] Sending test notification to ${schedule.recipient_phone}`);
