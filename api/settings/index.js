@@ -283,6 +283,82 @@ async function handleNotificationSchedulesDelete(req, res, user, impersonateId, 
   }
 }
 
+// ─── Notification Logs Handler (Diagnostics) ───────────────────────────────
+
+async function handleNotificationLogsGet(req, res, user, impersonateId, isAdmin) {
+  try {
+    let companyId = null;
+
+    if (impersonateId && isAdmin) {
+      companyId = impersonateId;
+    } else {
+      const company = await getCompany(user.id);
+      if (!company) return res.status(401).json({ error: 'Unauthorized' });
+      companyId = company.id;
+    }
+
+    // Obtener notificaciones programadas habilitadas
+    const { data: schedules, error: schedulesErr } = await supabaseAdmin
+      .from('notification_schedules')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('enabled', true);
+
+    if (schedulesErr) {
+      console.error('[settings/notification-logs] schedules error:', schedulesErr.message);
+      return res.status(500).json({ error: schedulesErr.message });
+    }
+
+    // Obtener últimos 50 logs de notificaciones programadas (últimas 7 días)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: logs, error: logsErr } = await supabaseAdmin
+      .from('whatsapp_logs')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('message_type', 'scheduled_notification')
+      .gte('sent_at', sevenDaysAgo)
+      .order('sent_at', { ascending: false })
+      .limit(50);
+
+    if (logsErr) {
+      console.error('[settings/notification-logs] logs error:', logsErr.message);
+      return res.status(500).json({ error: logsErr.message });
+    }
+
+    // Resumir: cuántos enviados, cuántos fallidos, últimas horas
+    const summary = {
+      total_scheduled: schedules.length,
+      total_logs: logs.length,
+      sent_count: logs.filter(l => l.status === 'sent').length,
+      failed_count: logs.filter(l => l.status === 'failed').length,
+      last_log: logs[0] ? {
+        sent_at: logs[0].sent_at,
+        recipient: logs[0].recipient,
+        status: logs[0].status,
+        error_message: logs[0].error_message
+      } : null
+    };
+
+    return res.status(200).json({
+      summary,
+      schedules: schedules.map(s => ({
+        id: s.id,
+        recipient_phone: s.recipient_phone,
+        frequency: s.frequency,
+        time_of_day: s.time_of_day,
+        timezone: s.timezone,
+        enabled: s.enabled,
+        last_sent_at: s.last_sent_at,
+        include_all_locations: s.include_all_locations
+      })),
+      recent_logs: logs.slice(0, 20)
+    });
+  } catch (err) {
+    console.error('[settings/notification-logs] GET fatal:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── Main Handler ──────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -303,6 +379,14 @@ export default async function handler(req, res) {
   if (req.query.resource === 'locations') {
     if (req.method === 'GET') {
       return handleLocationsGet(req, res, user, impersonateId, isAdmin);
+    }
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Route to notification-logs if resource param is set (diagnostics)
+  if (req.query.resource === 'notification-logs') {
+    if (req.method === 'GET') {
+      return handleNotificationLogsGet(req, res, user, impersonateId, isAdmin);
     }
     return res.status(405).json({ error: 'Method not allowed' });
   }

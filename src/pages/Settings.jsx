@@ -836,6 +836,15 @@ function TabNotificaciones() {
     }
   });
 
+  // Cargar logs de notificaciones para diagnostics
+  const { data: notificationLogs = {}, error: logsError } = useQuery({
+    queryKey: ['notification-logs', impersonating?.id],
+    queryFn: async () => {
+      const result = await api('/api/settings?resource=notification-logs');
+      return result;
+    }
+  });
+
   // Force refetch cuando cambia impersonating?.id o al montar el componente
   useEffect(() => {
     const companyId = impersonating?.id || 'default-user';
@@ -1186,6 +1195,98 @@ function TabNotificaciones() {
           <PlusCircle size={14} /> Agregar Notificación
         </button>
       )}
+
+      {/* Sección de Diagnostics y Logs */}
+      <div className="mt-8 pt-8 border-t border-slate-200">
+        <details className="group cursor-pointer">
+          <summary className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-800 py-2">
+            <ChevronDown size={16} className="group-open:rotate-180 transition-transform" />
+            🔍 Diagnostics &amp; Logs (últimas 24h)
+          </summary>
+
+          <div className="mt-4 space-y-4 text-sm">
+            {/* Resumen */}
+            {notificationLogs.summary && (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <h3 className="font-semibold text-slate-800 mb-3">Resumen de Envíos</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white p-2 rounded border border-slate-200">
+                    <div className="text-xs text-slate-600">Notificaciones Programadas</div>
+                    <div className="text-lg font-bold text-slate-800">{notificationLogs.summary.total_scheduled}</div>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-slate-200">
+                    <div className="text-xs text-slate-600">Logs Registrados (7d)</div>
+                    <div className="text-lg font-bold text-slate-800">{notificationLogs.summary.total_logs}</div>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-green-200 bg-green-50">
+                    <div className="text-xs text-green-600">Enviados ✓</div>
+                    <div className="text-lg font-bold text-green-700">{notificationLogs.summary.sent_count}</div>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-red-200 bg-red-50">
+                    <div className="text-xs text-red-600">Fallidos ✗</div>
+                    <div className="text-lg font-bold text-red-700">{notificationLogs.summary.failed_count}</div>
+                  </div>
+                </div>
+
+                {notificationLogs.summary.last_log && (
+                  <div className="mt-3 p-2 bg-slate-100 rounded border-l-4 border-blue-500">
+                    <div className="text-xs text-slate-600 font-mono">
+                      Último envío: <span className="text-slate-800 font-semibold">{new Date(notificationLogs.summary.last_log.sent_at).toLocaleString('es-CO')}</span>
+                    </div>
+                    <div className="text-xs text-slate-600 mt-1">
+                      Destinatario: <span className="text-slate-800 font-mono">{notificationLogs.summary.last_log.recipient}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                        notificationLogs.summary.last_log.status === 'sent' 
+                          ? 'bg-green-200 text-green-800' 
+                          : 'bg-red-200 text-red-800'
+                      }`}>
+                        {notificationLogs.summary.last_log.status === 'sent' ? '✓ Enviado' : '✗ Falló'}
+                      </span>
+                    </div>
+                    {notificationLogs.summary.last_log.error_message && (
+                      <div className="mt-1 text-xs text-red-600 font-mono bg-red-50 p-1 rounded">
+                        Error: {notificationLogs.summary.last_log.error_message.substring(0, 100)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Últimos logs */}
+            {notificationLogs.recent_logs && notificationLogs.recent_logs.length > 0 && (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <h3 className="font-semibold text-slate-800 mb-3">Últimos Intentos de Envío</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {notificationLogs.recent_logs.slice(0, 10).map((log, idx) => (
+                    <div key={idx} className="bg-white p-2 rounded border border-slate-200 text-xs">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`font-semibold ${log.status === 'sent' ? 'text-green-700' : 'text-red-700'}`}>
+                          {log.status === 'sent' ? '✓' : '✗'} {log.recipient}
+                        </span>
+                        <span className="text-slate-500 font-mono">{new Date(log.sent_at).toLocaleTimeString('es-CO')}</span>
+                      </div>
+                      {log.error_message && (
+                        <div className="text-red-600 font-mono text-xs bg-red-50 p-1 rounded mt-1">
+                          {log.error_message.substring(0, 150)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!notificationLogs.summary && (
+              <div className="text-slate-500 text-center py-4">
+                Cargando diagnostics...
+              </div>
+            )}
+          </div>
+        </details>
+      </div>
     </div>
   );
 }
