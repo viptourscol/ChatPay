@@ -9,7 +9,7 @@ import {
   Clipboard, Check, User, Lock, Smartphone, Landmark,
   RefreshCw, Loader2, CheckCircle2, Save, Zap,
   PlusCircle, Trash2, CreditCard, Info, ChevronDown, ChevronUp, Copy,
-  Clock, AlertCircle, Calendar, RotateCw
+  Clock, AlertCircle, Calendar, RotateCw, X, MessageSquare
 } from 'lucide-react';
 
 const TAX_REGIMES = [
@@ -794,6 +794,82 @@ function TabEgresos() {
   );
 }
 
+// ─── Modal: Mostrar mensaje de notificación completo ──────────────────────────────
+function NotificationMessageModal({ log, onClose }) {
+  if (!log) return null;
+
+  const time = new Date(log.sent_at).toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+
+        {/* Header estilo WhatsApp */}
+        <div className="bg-[#075e54] text-white px-4 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-[#128c7e] flex items-center justify-center shrink-0">
+            <MessageSquare size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm truncate">ChatPay Bot</div>
+            <div className="text-xs text-green-200 truncate">→ {log.recipient}</div>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Fondo tipo chat WhatsApp */}
+        <div
+          className="px-4 py-5 min-h-[200px] max-h-[60vh] overflow-y-auto"
+          style={{ background: '#e5ddd5 url("data:image/svg+xml,%3Csvg width=\'300\' height=\'300\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E")' }}
+        >
+          {/* Burbuja saliente (derecha) */}
+          <div className="flex justify-end">
+            <div className="max-w-[85%]">
+              <div className="bg-[#dcf8c6] rounded-2xl rounded-tr-sm px-3 py-2 shadow-sm relative">
+                {log.message_text ? (
+                  <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
+                    {log.message_text}
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-400 italic">[Mensaje de plantilla — sin texto guardado]</p>
+                )}
+                {/* Timestamp + ticks estilo WA */}
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className="text-[10px] text-slate-400">{time}</span>
+                  {log.status === 'failed'
+                    ? <X size={12} className="text-red-400" />
+                    : log.delivery_status === 'read'
+                      ? <span className="text-[10px] text-[#4fc3f7] font-bold">✓✓</span>
+                      : <Check size={13} className="text-slate-400" strokeWidth={3} />
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer con detalles */}
+        <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs">
+          <div className="space-y-1 text-slate-600">
+            <div><strong>Tipo:</strong> {log.message_type}</div>
+            <div><strong>Estado:</strong> {log.status === 'sent' ? '✓ Enviado' : '✗ Falló'}</div>
+            {log.error_message && (
+              <div className="text-red-600 font-mono bg-red-50 p-1 rounded mt-2">
+                Error: {log.error_message}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Tab: Notificaciones Programadas ──────────────────────────────
 function TabNotificaciones() {
   const qc = useQueryClient();
@@ -880,6 +956,7 @@ function TabNotificaciones() {
   });
 
   const [showForm, setShowForm] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
   const [testNotificationResult, setTestNotificationResult] = useState(null);
 
   const testNotificationMutation = useMutation({
@@ -1321,19 +1398,24 @@ function TabNotificaciones() {
                 <h3 className="font-semibold text-slate-800 mb-3">Últimos Intentos de Envío</h3>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {notificationLogs.recent_logs.slice(0, 10).map((log, idx) => (
-                    <div key={idx} className="bg-white p-2 rounded border border-slate-200 text-xs">
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedLog(log)}
+                      className="w-full bg-white p-2 rounded border border-slate-200 text-xs hover:border-blue-400 hover:bg-blue-50 transition text-left cursor-pointer group"
+                    >
                       <div className="flex items-center justify-between mb-1">
                         <span className={`font-semibold ${log.status === 'sent' ? 'text-green-700' : 'text-red-700'}`}>
                           {log.status === 'sent' ? '✓' : '✗'} {log.recipient}
                         </span>
-                        <span className="text-slate-500 font-mono">{new Date(log.sent_at).toLocaleTimeString('es-CO')}</span>
+                        <span className="text-slate-500 font-mono group-hover:text-blue-600">{new Date(log.sent_at).toLocaleTimeString('es-CO')}</span>
                       </div>
                       {log.error_message && (
                         <div className="text-red-600 font-mono text-xs bg-red-50 p-1 rounded mt-1">
                           {log.error_message.substring(0, 150)}
                         </div>
                       )}
-                    </div>
+                      <div className="text-slate-400 text-xs mt-1">Haz clic para ver el mensaje completo →</div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1347,6 +1429,9 @@ function TabNotificaciones() {
           </div>
         </details>
       </div>
+
+      {/* Modal: Mostrar mensaje completo */}
+      <NotificationMessageModal log={selectedLog} onClose={() => setSelectedLog(null)} />
     </div>
   );
 }
