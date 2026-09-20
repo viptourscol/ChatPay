@@ -8,7 +8,8 @@ import {
   Building2, Users, Mail, Tag, Code2,
   Clipboard, Check, User, Lock, Smartphone, Landmark,
   RefreshCw, Loader2, CheckCircle2, Save, Zap,
-  PlusCircle, Trash2, CreditCard, Info, ChevronDown, ChevronUp, Copy
+  PlusCircle, Trash2, CreditCard, Info, ChevronDown, ChevronUp, Copy,
+  Clock, AlertCircle
 } from 'lucide-react';
 
 const TAX_REGIMES = [
@@ -25,6 +26,7 @@ const TABS = [
   { id: 'usuarios',   label: 'Usuarios',   Icon: Users },
   { id: 'conexiones', label: 'Conexiones', Icon: Mail },
   { id: 'egresos',    label: 'Egresos',    Icon: Tag },
+  { id: 'notificaciones', label: 'Notificaciones', Icon: Clock },
   { id: 'sms',        label: 'SMS Backup', Icon: Smartphone },
   { id: 'api',        label: 'API Docs',   Icon: Code2 },
 ];
@@ -792,6 +794,299 @@ function TabEgresos() {
   );
 }
 
+// ─── Tab: Notificaciones Programadas ──────────────────────────────
+function TabNotificaciones() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { impersonating } = useImpersonation();
+  
+  const { data: schedules = [], isLoading } = useQuery({
+    queryKey: ['notification-schedules', impersonating?.id],
+    queryFn: () => api('/api/notification-schedules')
+  });
+
+  const { data: locations = [] } = useQuery({
+    queryKey: ['locations', impersonating?.id],
+    queryFn: () => api('/api/locations')
+  });
+
+  const [form, setForm] = useState({
+    recipient_phone: '',
+    frequency: 'daily',
+    day_of_week: 1,
+    time_of_day: '09:00',
+    include_all_locations: true,
+    location_ids: [],
+    enabled: true
+  });
+
+  const [showForm, setShowForm] = useState(false);
+
+  const createMutation = useMutation({
+    mutationFn: (data) => api('/api/notification-schedules', {
+      method: 'POST',
+      body: {
+        ...data,
+        time_of_day: `${data.time_of_day}:00`
+      }
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notification-schedules'] });
+      setForm({
+        recipient_phone: '',
+        frequency: 'daily',
+        day_of_week: 1,
+        time_of_day: '09:00',
+        include_all_locations: true,
+        location_ids: [],
+        enabled: true
+      });
+      setShowForm(false);
+      toast.success('Notificación programada creada');
+    },
+    onError: (err) => toast.error(err.message || 'Error al crear notificación')
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, ...data }) => api(`/api/notification-schedules`, {
+      method: 'PATCH',
+      query: { id },
+      body: data
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notification-schedules'] });
+      toast.success('Notificación actualizada');
+    },
+    onError: (err) => toast.error(err.message || 'Error al actualizar')
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api(`/api/notification-schedules`, {
+      method: 'DELETE',
+      query: { id }
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notification-schedules'] });
+      toast.success('Notificación eliminada');
+    },
+    onError: (err) => toast.error(err.message || 'Error al eliminar')
+  });
+
+  const handleSubmit = () => {
+    if (!form.recipient_phone.trim()) {
+      toast.error('El número de WhatsApp es requerido');
+      return;
+    }
+    createMutation.mutate(form);
+  };
+
+  const handleToggle = (id, enabled) => {
+    updateMutation.mutate({ id, enabled: !enabled });
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <div>
+        <h2 className="font-semibold text-lg mb-2 flex items-center gap-2"><Clock size={18} /> Notificaciones Programadas</h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Recibe resúmenes diarios o semanales de comprobantes pendientes por WhatsApp, agrupados por sede.
+        </p>
+      </div>
+
+      {/* Lista de notificaciones existentes */}
+      {isLoading ? (
+        <div className="text-center py-8 text-slate-400">Cargando…</div>
+      ) : schedules.length > 0 ? (
+        <div className="space-y-3 mb-6">
+          {schedules.map((schedule) => (
+            <div key={schedule.id} className="rounded-xl border border-slate-200 p-4 space-y-2">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="font-medium text-slate-800">
+                    {schedule.frequency === 'daily' ? '📅 Diaria' : '📆 Semanal'} a las {schedule.time_of_day?.slice(0, 5) || '09:00'}
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    Para: <span className="font-mono">{schedule.recipient_phone}</span>
+                  </div>
+                  {!schedule.include_all_locations && schedule.location_ids?.length > 0 && (
+                    <div className="text-xs text-slate-500 mt-1">
+                      Sedes: {locations
+                        .filter(loc => schedule.location_ids.includes(loc.id))
+                        .map(loc => loc.name)
+                        .join(', ') || 'N/A'}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleToggle(schedule.id, schedule.enabled)}
+                  disabled={updateMutation.isPending}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                    schedule.enabled
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  {schedule.enabled ? '✓ Activo' : 'Desactivo'}
+                </button>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => deleteMutation.mutate(schedule.id)}
+                  disabled={deleteMutation.isPending}
+                  className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium"
+                >
+                  <Trash2 size={12} /> Eliminar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 mb-6 text-sm text-slate-600">
+          No hay notificaciones programadas. Crea una para comenzar.
+        </div>
+      )}
+
+      {/* Formulario para crear nueva notificación */}
+      {showForm && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 mb-6 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle size={16} className="text-blue-600" />
+            <h3 className="font-medium text-blue-900">Nueva Notificación Programada</h3>
+          </div>
+
+          {/* Número WhatsApp */}
+          <div>
+            <label className="label text-slate-700">Número WhatsApp del Admin</label>
+            <input
+              type="text"
+              className="input w-full"
+              placeholder="+573001234567"
+              value={form.recipient_phone}
+              onChange={(e) => setForm({ ...form, recipient_phone: e.target.value })}
+            />
+            <p className="text-xs text-slate-500 mt-1">Formato: +57 seguido de 10 dígitos</p>
+          </div>
+
+          {/* Frecuencia */}
+          <div>
+            <label className="label text-slate-700">Frecuencia</label>
+            <div className="flex gap-3">
+              {['daily', 'weekly'].map((freq) => (
+                <label key={freq} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="frequency"
+                    value={freq}
+                    checked={form.frequency === freq}
+                    onChange={(e) => setForm({ ...form, frequency: e.target.value })}
+                    className="rounded"
+                  />
+                  <span className="text-sm">{freq === 'daily' ? '📅 Diaria' : '📆 Semanal'}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Día de semana (solo si es semanal) */}
+          {form.frequency === 'weekly' && (
+            <div>
+              <label className="label text-slate-700">Día de la semana</label>
+              <select
+                className="input w-full"
+                value={form.day_of_week}
+                onChange={(e) => setForm({ ...form, day_of_week: Number(e.target.value) })}
+              >
+                {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map((day, i) => (
+                  <option key={i} value={i}>{day}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Hora */}
+          <div>
+            <label className="label text-slate-700">Hora de envío (Hora Colombia)</label>
+            <input
+              type="time"
+              className="input w-full"
+              value={form.time_of_day}
+              onChange={(e) => setForm({ ...form, time_of_day: e.target.value })}
+            />
+          </div>
+
+          {/* Sedes */}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer mb-2">
+              <input
+                type="checkbox"
+                checked={form.include_all_locations}
+                onChange={(e) => setForm({ ...form, include_all_locations: e.target.checked, location_ids: [] })}
+                className="rounded"
+              />
+              <span className="text-sm font-medium">Incluir todas las sedes</span>
+            </label>
+
+            {!form.include_all_locations && locations.length > 0 && (
+              <div className="space-y-2 ml-4">
+                {locations.map((loc) => (
+                  <label key={loc.id} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.location_ids.includes(loc.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setForm({ ...form, location_ids: [...form.location_ids, loc.id] });
+                        } else {
+                          setForm({ ...form, location_ids: form.location_ids.filter(id => id !== loc.id) });
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{loc.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Botones */}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={handleSubmit}
+              disabled={createMutation.isPending}
+              className="btn btn-primary flex items-center gap-1.5"
+            >
+              {createMutation.isPending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <PlusCircle size={14} />
+              )}
+              {createMutation.isPending ? 'Creando…' : 'Crear Notificación'}
+            </button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="btn btn-secondary"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Botón crear si no hay formulario */}
+      {!showForm && (
+        <button
+          onClick={() => setShowForm(true)}
+          className="btn btn-primary flex items-center gap-1.5"
+        >
+          <PlusCircle size={14} /> Agregar Notificación
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Tab: API Docs ────────────────────────────────────────────────
 function TabApiDocs() {
   const BASE = window.location.origin;
@@ -845,6 +1140,7 @@ export default function Settings() {
     usuarios: <TabUsuarios />,
     conexiones: <TabConexiones />,
     egresos: <TabEgresos />,
+    notificaciones: <TabNotificaciones />,
     sms: <TabSms />,
     api: <TabApiDocs />
   };
