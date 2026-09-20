@@ -9,7 +9,7 @@ import {
   Clipboard, Check, User, Lock, Smartphone, Landmark,
   RefreshCw, Loader2, CheckCircle2, Save, Zap,
   PlusCircle, Trash2, CreditCard, Info, ChevronDown, ChevronUp, Copy,
-  Clock, AlertCircle
+  Clock, AlertCircle, Calendar, RotateCw
 } from 'lucide-react';
 
 const TAX_REGIMES = [
@@ -800,15 +800,27 @@ function TabNotificaciones() {
   const toast = useToast();
   const { impersonating } = useImpersonation();
   
+  // Cargar schedules
   const { data: schedules = [], isLoading } = useQuery({
     queryKey: ['notification-schedules', impersonating?.id],
     queryFn: () => api('/api/settings?resource=notification-schedules')
   });
 
+  // Cargar locations
   const { data: locations = [] } = useQuery({
     queryKey: ['locations', impersonating?.id],
     queryFn: () => api('/api/locations')
   });
+
+  // Cargar settings para obtener números WhatsApp configurados
+  const { data: settings = {} } = useQuery({
+    queryKey: ['settings', impersonating?.id],
+    queryFn: () => api('/api/settings')
+  });
+
+  const notificationPhones = Array.isArray(settings.notification_whatsapp)
+    ? settings.notification_whatsapp.filter(n => n.active).map(n => n.phone)
+    : [];
 
   const [form, setForm] = useState({
     recipient_phone: '',
@@ -900,18 +912,36 @@ function TabNotificaciones() {
             <div key={schedule.id} className="rounded-xl border border-slate-200 p-4 space-y-2">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="font-medium text-slate-800">
-                    {schedule.frequency === 'daily' ? '📅 Diaria' : '📆 Semanal'} a las {schedule.time_of_day?.slice(0, 5) || '09:00'}
+                  <div className="font-medium text-slate-800 flex items-center gap-2">
+                    {schedule.frequency === 'daily' ? (
+                      <>
+                        <Calendar size={16} className="text-blue-600" />
+                        <span>Diaria</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCw size={16} className="text-purple-600" />
+                        <span>Semanal</span>
+                      </>
+                    )}
+                    <span className="text-slate-600 text-sm ml-2">a las {schedule.time_of_day?.slice(0, 5) || '09:00'}</span>
                   </div>
-                  <div className="text-sm text-slate-600">
-                    Para: <span className="font-mono">{schedule.recipient_phone}</span>
+                  <div className="text-sm text-slate-600 mt-1">
+                    Para: <span className="font-mono text-slate-700">{schedule.recipient_phone}</span>
                   </div>
                   {!schedule.include_all_locations && schedule.location_ids?.length > 0 && (
-                    <div className="text-xs text-slate-500 mt-1">
-                      Sedes: {locations
+                    <div className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+                      <Landmark size={12} />
+                      {locations
                         .filter(loc => schedule.location_ids.includes(loc.id))
                         .map(loc => loc.name)
                         .join(', ') || 'N/A'}
+                    </div>
+                  )}
+                  {schedule.include_all_locations && (
+                    <div className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+                      <Landmark size={12} />
+                      <span>Todas las sedes</span>
                     </div>
                   )}
                 </div>
@@ -953,36 +983,58 @@ function TabNotificaciones() {
             <h3 className="font-medium text-blue-900">Nueva Notificación Programada</h3>
           </div>
 
-          {/* Número WhatsApp */}
+          {/* Número WhatsApp - Seleccionar de números configurados */}
           <div>
             <label className="label text-slate-700">Número WhatsApp del Admin</label>
-            <input
-              type="text"
-              className="input w-full"
-              placeholder="+573001234567"
-              value={form.recipient_phone}
-              onChange={(e) => setForm({ ...form, recipient_phone: e.target.value })}
-            />
-            <p className="text-xs text-slate-500 mt-1">Formato: +57 seguido de 10 dígitos</p>
+            {notificationPhones.length > 0 ? (
+              <select
+                className="input w-full"
+                value={form.recipient_phone}
+                onChange={(e) => setForm({ ...form, recipient_phone: e.target.value })}
+              >
+                <option value="">-- Seleccionar un número --</option>
+                {notificationPhones.map((phone) => (
+                  <option key={phone} value={phone}>
+                    {phone}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm">
+                ⚠️ No hay números de WhatsApp configurados. Ve a la sección "Conexiones" para agregar números de notificación.
+              </div>
+            )}
+            <p className="text-xs text-slate-500 mt-1">Selecciona uno de los números de notificación ya configurados</p>
           </div>
 
-          {/* Frecuencia */}
+          {/* Frecuencia con iconos */}
           <div>
             <label className="label text-slate-700">Frecuencia</label>
             <div className="flex gap-3">
-              {['daily', 'weekly'].map((freq) => (
-                <label key={freq} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="frequency"
-                    value={freq}
-                    checked={form.frequency === freq}
-                    onChange={(e) => setForm({ ...form, frequency: e.target.value })}
-                    className="rounded"
-                  />
-                  <span className="text-sm">{freq === 'daily' ? '📅 Diaria' : '📆 Semanal'}</span>
-                </label>
-              ))}
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border-2 transition" style={{borderColor: form.frequency === 'daily' ? '#3b82f6' : '#e2e8f0'}}>
+                <input
+                  type="radio"
+                  name="frequency"
+                  value="daily"
+                  checked={form.frequency === 'daily'}
+                  onChange={(e) => setForm({ ...form, frequency: e.target.value })}
+                  className="rounded"
+                />
+                <Calendar size={16} className="text-blue-600" />
+                <span className="text-sm font-medium">Diaria</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border-2 transition" style={{borderColor: form.frequency === 'weekly' ? '#9333ea' : '#e2e8f0'}}>
+                <input
+                  type="radio"
+                  name="frequency"
+                  value="weekly"
+                  checked={form.frequency === 'weekly'}
+                  onChange={(e) => setForm({ ...form, frequency: e.target.value })}
+                  className="rounded"
+                />
+                <RotateCw size={16} className="text-purple-600" />
+                <span className="text-sm font-medium">Semanal</span>
+              </label>
             </div>
           </div>
 
@@ -1013,37 +1065,52 @@ function TabNotificaciones() {
             />
           </div>
 
-          {/* Sedes */}
+          {/* Sedes - Mostrar siempre */}
           <div>
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input
-                type="checkbox"
-                checked={form.include_all_locations}
-                onChange={(e) => setForm({ ...form, include_all_locations: e.target.checked, location_ids: [] })}
-                className="rounded"
-              />
-              <span className="text-sm font-medium">Incluir todas las sedes</span>
+            <label className="label text-slate-700 flex items-center gap-2">
+              <Landmark size={16} />
+              Sedes a incluir
             </label>
+            
+            {locations.length > 0 ? (
+              <>
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-100 transition mb-2">
+                  <input
+                    type="checkbox"
+                    checked={form.include_all_locations}
+                    onChange={(e) => setForm({ ...form, include_all_locations: e.target.checked, location_ids: [] })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium">Incluir todas las sedes</span>
+                </label>
 
-            {!form.include_all_locations && locations.length > 0 && (
-              <div className="space-y-2 ml-4">
-                {locations.map((loc) => (
-                  <label key={loc.id} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.location_ids.includes(loc.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setForm({ ...form, location_ids: [...form.location_ids, loc.id] });
-                        } else {
-                          setForm({ ...form, location_ids: form.location_ids.filter(id => id !== loc.id) });
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <span className="text-sm">{loc.name}</span>
-                  </label>
-                ))}
+                {locations.length > 0 && (
+                  <div className="space-y-2 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                    {locations.map((loc) => (
+                      <label key={loc.id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded transition">
+                        <input
+                          type="checkbox"
+                          checked={form.include_all_locations || form.location_ids.includes(loc.id)}
+                          onChange={(e) => {
+                            if (form.include_all_locations) return; // Deshabilitado si include_all_locations está activo
+                            if (e.target.checked) {
+                              setForm({ ...form, location_ids: [...form.location_ids, loc.id] });
+                            } else {
+                              setForm({ ...form, location_ids: form.location_ids.filter(id => id !== loc.id) });
+                            }
+                          }}
+                          disabled={form.include_all_locations}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{loc.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm">
+                ⚠️ No hay sedes configuradas en tu empresa.
               </div>
             )}
           </div>
