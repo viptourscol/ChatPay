@@ -445,7 +445,6 @@ async function handleSendTestNotification(req, res, user, impersonateId, isAdmin
         recipient_phone: schedule.recipient_phone,
         frequency: schedule.frequency
       },
-      locationStats: locationStats,
       messagePreview: message
     });
   } catch (err) {
