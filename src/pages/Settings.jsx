@@ -801,26 +801,58 @@ function TabNotificaciones() {
   const { impersonating } = useImpersonation();
   
   // Cargar schedules
-  const { data: schedules = [], isLoading } = useQuery({
+  const { data: schedules = [], isLoading, error: schedulesError } = useQuery({
     queryKey: ['notification-schedules', impersonating?.id],
-    queryFn: () => api('/api/settings?resource=notification-schedules')
+    queryFn: async () => {
+      console.log('[TabNotificaciones] Fetching schedules for company:', impersonating?.id);
+      const result = await api('/api/settings?resource=notification-schedules');
+      console.log('[TabNotificaciones] Schedules result:', result);
+      return result;
+    }
   });
 
   // Cargar locations
-  const { data: locations = [] } = useQuery({
+  const { data: locations = [], error: locationsError } = useQuery({
     queryKey: ['locations', impersonating?.id],
-    queryFn: () => api('/api/locations')
+    queryFn: async () => {
+      console.log('[TabNotificaciones] Fetching locations for company:', impersonating?.id);
+      const result = await api('/api/locations');
+      console.log('[TabNotificaciones] Locations result:', result);
+      return result;
+    }
   });
 
   // Cargar settings para obtener números WhatsApp configurados
-  const { data: settings = {} } = useQuery({
+  const { data: settings = {}, error: settingsError } = useQuery({
     queryKey: ['settings', impersonating?.id],
-    queryFn: () => api('/api/settings')
+    queryFn: async () => {
+      console.log('[TabNotificaciones] Fetching settings for company:', impersonating?.id);
+      const result = await api('/api/settings');
+      console.log('[TabNotificaciones] Settings result:', result);
+      return result;
+    }
   });
+
+  // Force refetch cuando cambia impersonating?.id
+  useEffect(() => {
+    if (impersonating?.id) {
+      console.log('[TabNotificaciones] Impersonating changed to:', impersonating.id);
+      qc.invalidateQueries({ queryKey: ['notification-schedules', impersonating.id] });
+      qc.invalidateQueries({ queryKey: ['locations', impersonating.id] });
+      qc.invalidateQueries({ queryKey: ['settings', impersonating.id] });
+    }
+  }, [impersonating?.id, qc]);
 
   const notificationPhones = Array.isArray(settings.notification_whatsapp)
     ? settings.notification_whatsapp.filter(n => n.active).map(n => n.phone)
     : [];
+
+  // Debug: mostrar errores si las queries fallan
+  useEffect(() => {
+    if (schedulesError) console.error('[TabNotificaciones] Schedules error:', schedulesError);
+    if (locationsError) console.error('[TabNotificaciones] Locations error:', locationsError);
+    if (settingsError) console.error('[TabNotificaciones] Settings error:', settingsError);
+  }, [schedulesError, locationsError, settingsError]);
 
   const [form, setForm] = useState({
     recipient_phone: '',
