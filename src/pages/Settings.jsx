@@ -831,8 +831,9 @@ function TabNotificaciones() {
       console.log('[TabNotificaciones] Settings result:', result);
       console.log('[TabNotificaciones] notification_whatsapp:', result?.notification_whatsapp);
       console.log('[TabNotificaciones] notification_whatsapp type:', Array.isArray(result?.notification_whatsapp) ? 'array' : typeof result?.notification_whatsapp);
-      if (Array.isArray(result?.notification_whatsapp)) {
-        console.log('[TabNotificaciones] notification_whatsapp items:', result.notification_whatsapp.map(n => ({ phone: n.phone, active: n.active })));
+      if (Array.isArray(result?.notification_whatsapp) && result.notification_whatsapp.length > 0) {
+        console.log('[TabNotificaciones] FULL FIRST ITEM:', JSON.stringify(result.notification_whatsapp[0], null, 2));
+        console.log('[TabNotificaciones] ALL KEYS:', Object.keys(result.notification_whatsapp[0]));
       }
       return result;
     }
