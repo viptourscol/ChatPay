@@ -8,6 +8,7 @@
 import { supabaseAdmin } from '../lib/supabase.js';
 import { requireUser } from '../lib/auth.js';
 import { readSystemState, writeSystemState } from '../lib/systemState.js';
+import { reconcilePendingVerifications } from '../lib/reconcilePendingVerifications.js';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 
@@ -89,6 +90,88 @@ export default async function handler(req, res) {
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Action: ?action=reconcile-now — reconcilia todas las empresas automáticamente
+  if (req.query.action === 'reconcile-now') {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+      console.log('[admin/reconcile-now] Starting automatic reconciliation for all companies...');
+      
+      // Obtener todas las empresas
+      const { data: companies, error: compError } = await supabaseAdmin
+        .from('companies')
+        .select('id, name')
+        .eq('is_active', true);
+      
+      if (compError || !companies) {
+        return res.status(500).json({ error: 'Error obteniendo empresas: ' + compError?.message });
+      }
+
+      console.log(`[admin/reconcile-now] Found ${companies.length} active companies`);
+
+      const results = [];
+
+      // Reconciliar cada empresa
+      for (const company of companies) {
+        try {
+          console.log(`[admin/reconcile-now] Reconciling company: ${company.id} (${company.name})`);
+          
+          const result = await reconcilePendingVerifications({
+            companyId: company.id,
+            source: 'admin_manual',
+            lookbackMinutes: 1440, // Últimas 24 horas
+            limit: 100 // Permitir hasta 100 por empresa
+          });
+
+          results.push({
+            companyId: company.id,
+            companyName: company.name,
+            checked: result.checked || 0,
+            updated: result.updated || 0,
+            status: 'success'
+          });
+
+          console.log(`[admin/reconcile-now] Company ${company.id}: checked=${result.checked}, updated=${result.updated}`);
+        } catch (err) {
+          console.error(`[admin/reconcile-now] Error reconciling company ${company.id}:`, err.message);
+          results.push({
+            companyId: company.id,
+            companyName: company.name,
+            status: 'error',
+            error: err.message
+          });
+        }
+      }
+
+      // Resumen
+      const totalChecked = results.reduce((sum, r) => sum + (r.checked || 0), 0);
+      const totalUpdated = results.reduce((sum, r) => sum + (r.updated || 0), 0);
+      const totalErrors = results.filter(r => r.status === 'error').length;
+
+      console.log(`[admin/reconcile-now] Complete! Total checked: ${totalChecked}, updated: ${totalUpdated}, errors: ${totalErrors}`);
+
+      return res.json({
+        success: true,
+        message: `✅ Reconciliación completada: ${totalUpdated} verificaciones actualizadas de ${totalChecked} revisadas`,
+        summary: {
+          companiesProcessed: companies.length,
+          totalChecked,
+          totalUpdated,
+          totalErrors
+        },
+        details: results
+      });
+    } catch (err) {
+      console.error('[admin/reconcile-now] Fatal error:', err.message);
+      return res.status(500).json({
+        success: false,
+        error: 'Error en reconciliación: ' + err.message
+      });
+    }
   }
 
   // GET /api/admin — listar todas las empresas con stats básicas
