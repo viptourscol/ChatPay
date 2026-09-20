@@ -880,6 +880,35 @@ function TabNotificaciones() {
   });
 
   const [showForm, setShowForm] = useState(false);
+  const [testNotificationResult, setTestNotificationResult] = useState(null);
+
+  const testNotificationMutation = useMutation({
+    mutationFn: async (scheduleId) => {
+      const result = await api('/api/settings?resource=send-test-notification', {
+        method: 'POST',
+        body: { scheduleId }
+      });
+      return result;
+    },
+    onSuccess: (result) => {
+      setTestNotificationResult({
+        success: true,
+        message: result.message,
+        timestamp: new Date()
+      });
+      setTimeout(() => setTestNotificationResult(null), 5000);
+      // Refetch logs
+      qc.invalidateQueries({ queryKey: ['notification-logs', impersonating?.id] });
+    },
+    onError: (error) => {
+      setTestNotificationResult({
+        success: false,
+        message: error.message,
+        timestamp: new Date()
+      });
+      setTimeout(() => setTestNotificationResult(null), 5000);
+    }
+  });
 
   const createMutation = useMutation({
     mutationFn: (data) => api('/api/settings?resource=notification-schedules', {
@@ -1205,6 +1234,37 @@ function TabNotificaciones() {
           </summary>
 
           <div className="mt-4 space-y-4 text-sm">
+            {/* Botón para enviar reporte de prueba */}
+            {notificationLogs.schedules && notificationLogs.schedules.length > 0 && (
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-blue-900 text-sm">📤 Enviar Reporte Ahora</h3>
+                  <p className="text-xs text-blue-700 mt-0.5">Envía un reporte inmediatamente al WhatsApp configurado</p>
+                </div>
+                <button
+                  onClick={() => testNotificationMutation.mutate(notificationLogs.schedules[0]?.id)}
+                  disabled={testNotificationMutation.isPending}
+                  className="px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:bg-blue-400 transition"
+                >
+                  {testNotificationMutation.isPending ? '⏳ Enviando...' : '📤 Enviar Ahora'}
+                </button>
+              </div>
+            )}
+
+            {/* Mostrar resultado de prueba */}
+            {testNotificationResult && (
+              <div className={`p-3 rounded-lg border ${
+                testNotificationResult.success
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                <p className="text-xs font-semibold">
+                  {testNotificationResult.success ? '✓ ' : '✗ '}
+                  {testNotificationResult.message}
+                </p>
+              </div>
+            )}
+
             {/* Resumen */}
             {notificationLogs.summary && (
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">

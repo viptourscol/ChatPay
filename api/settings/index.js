@@ -7,6 +7,11 @@ import {
 } from '../../lib/bankHealth.js';
 import { readSystemState, writeSystemState } from '../../lib/systemState.js';
 import { getCompany } from '../../lib/getCompany.js';
+import {
+  getLocationPendingVerifications,
+  formatNotificationMessage
+} from '../../lib/scheduledNotifications.js';
+import { sendMessage } from '../../lib/whatsapp.js';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 
@@ -359,6 +364,99 @@ async function handleNotificationLogsGet(req, res, user, impersonateId, isAdmin)
   }
 }
 
+// ─── Send Test Notification Handler ────────────────────────────────────────
+
+async function handleSendTestNotification(req, res, user, impersonateId, isAdmin) {
+  try {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    let companyId = null;
+
+    if (impersonateId && isAdmin) {
+      companyId = impersonateId;
+    } else {
+      const company = await getCompany(user.id);
+      if (!company) return res.status(401).json({ error: 'Unauthorized' });
+      companyId = company.id;
+    }
+
+    // Obtener la notificación (desde body o usar la primera activa)
+    const { scheduleId } = req.body;
+
+    let schedule = null;
+    if (scheduleId) {
+      const { data, error } = await supabaseAdmin
+        .from('notification_schedules')
+        .select('*')
+        .eq('id', scheduleId)
+        .eq('company_id', companyId)
+        .single();
+
+      if (error) {
+        console.error('[settings/send-test-notification] schedule not found:', error.message);
+        return res.status(404).json({ error: 'Notification not found' });
+      }
+      schedule = data;
+    } else {
+      // Usar la primera habilitada
+      const { data, error } = await supabaseAdmin
+        .from('notification_schedules')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('enabled', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error('[settings/send-test-notification] no active schedules:', error.message);
+        return res.status(404).json({ error: 'No active notification schedules found' });
+      }
+      schedule = data;
+    }
+
+    // Obtener comprobantes pendientes
+    console.log(`[send-test-notification] Getting pending verifications for company ${companyId}`);
+    const locationStats = await getLocationPendingVerifications(
+      companyId,
+      schedule.include_all_locations ? null : schedule.location_ids
+    );
+
+    // Formatear mensaje
+    const message = formatNotificationMessage(locationStats);
+
+    // Enviar por WhatsApp
+    console.log(`[send-test-notification] Sending test notification to ${schedule.recipient_phone}`);
+    const result = await sendMessage(
+      schedule.recipient_phone,
+      message,
+      {
+        companyId: companyId,
+        messageType: 'scheduled_notification'
+      }
+    );
+
+    console.log(`[send-test-notification] Message sent: ${JSON.stringify(result)}`);
+
+    return res.status(200).json({
+      success: true,
+      message: `Reporte enviado a ${schedule.recipient_phone}`,
+      schedule: {
+        id: schedule.id,
+        recipient_phone: schedule.recipient_phone,
+        frequency: schedule.frequency
+      },
+      locationStats: locationStats,
+      messagePreview: message
+    });
+  } catch (err) {
+    console.error('[settings/send-test-notification] fatal error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── Main Handler ──────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -389,6 +487,11 @@ export default async function handler(req, res) {
       return handleNotificationLogsGet(req, res, user, impersonateId, isAdmin);
     }
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Route to send-test-notification if resource param is set
+  if (req.query.resource === 'send-test-notification') {
+    return handleSendTestNotification(req, res, user, impersonateId, isAdmin);
   }
 
   // Route to notification-schedules if resource param is set
