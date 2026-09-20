@@ -152,7 +152,6 @@ CREATE POLICY verification_expiration_tasks_update
 -- SELECT: Service role puede ver para procesar
 -- UPDATE: Service role puede actualizar con status/processed_at
 GRANT SELECT, UPDATE ON public.verification_expiration_tasks TO service_role;
-GRANT USAGE, SELECT ON SEQUENCE verification_expiration_tasks_id_seq TO service_role;
 
 -- Grant para ejecutar los triggers
 GRANT EXECUTE ON FUNCTION public.create_verification_expiration_task() TO authenticated;
