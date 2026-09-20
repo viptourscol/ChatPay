@@ -6,21 +6,21 @@ import {
   syncWhatsAppAbout
 } from '../../lib/bankHealth.js';
 import { readSystemState, writeSystemState } from '../../lib/systemState.js';
-import { resolveCompanyFromHeaders } from '../../lib/getCompany.js';
+import { getCompany } from '../../lib/getCompany.js';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 
 // ─── Notification Schedules Handlers ───────────────────────────────────────
 
-async function handleNotificationSchedulesGet(req, res) {
+async function handleNotificationSchedulesGet(req, res, user) {
   try {
-    const companyId = await resolveCompanyFromHeaders(req);
-    if (!companyId) return res.status(401).json({ error: 'Unauthorized' });
+    const company = await getCompany(user.id);
+    if (!company) return res.status(401).json({ error: 'Unauthorized' });
 
     const { data, error } = await supabaseAdmin
       .from('notification_schedules')
       .select('*')
-      .eq('company_id', companyId)
+      .eq('company_id', company.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -35,10 +35,10 @@ async function handleNotificationSchedulesGet(req, res) {
   }
 }
 
-async function handleNotificationSchedulesPost(req, res) {
+async function handleNotificationSchedulesPost(req, res, user) {
   try {
-    const companyId = await resolveCompanyFromHeaders(req);
-    if (!companyId) return res.status(401).json({ error: 'Unauthorized' });
+    const company = await getCompany(user.id);
+    if (!company) return res.status(401).json({ error: 'Unauthorized' });
 
     const {
       frequency = 'daily',
@@ -79,7 +79,7 @@ async function handleNotificationSchedulesPost(req, res) {
     const { data, error } = await supabaseAdmin
       .from('notification_schedules')
       .insert({
-        company_id: companyId,
+        company_id: company.id,
         frequency,
         day_of_week,
         time_of_day,
@@ -98,7 +98,7 @@ async function handleNotificationSchedulesPost(req, res) {
       return res.status(500).json({ error: error.message });
     }
 
-    console.log(`[settings/notification-schedules] created schedule ${data.id} for company ${companyId}`);
+    console.log(`[settings/notification-schedules] created schedule ${data.id} for company ${company.id}`);
     return res.status(201).json(data);
   } catch (err) {
     console.error('[settings/notification-schedules] POST fatal:', err.message);
@@ -106,10 +106,10 @@ async function handleNotificationSchedulesPost(req, res) {
   }
 }
 
-async function handleNotificationSchedulesPatch(req, res) {
+async function handleNotificationSchedulesPatch(req, res, user) {
   try {
-    const companyId = await resolveCompanyFromHeaders(req);
-    if (!companyId) return res.status(401).json({ error: 'Unauthorized' });
+    const company = await getCompany(user.id);
+    if (!company) return res.status(401).json({ error: 'Unauthorized' });
 
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id is required' });
@@ -170,10 +170,10 @@ async function handleNotificationSchedulesPatch(req, res) {
   }
 }
 
-async function handleNotificationSchedulesDelete(req, res) {
+async function handleNotificationSchedulesDelete(req, res, user) {
   try {
-    const companyId = await resolveCompanyFromHeaders(req);
-    if (!companyId) return res.status(401).json({ error: 'Unauthorized' });
+    const company = await getCompany(user.id);
+    if (!company) return res.status(401).json({ error: 'Unauthorized' });
 
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id is required' });
@@ -219,24 +219,25 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
+  // ¡IMPORTANTE! Validar usuario PRIMERO antes de cualquier query
+  const user = await requireUser(req, res);
+  if (!user) return;
+
   // Route to notification-schedules if resource param is set
   if (req.query.resource === 'notification-schedules') {
     switch (req.method) {
       case 'GET':
-        return handleNotificationSchedulesGet(req, res);
+        return handleNotificationSchedulesGet(req, res, user);
       case 'POST':
-        return handleNotificationSchedulesPost(req, res);
+        return handleNotificationSchedulesPost(req, res, user);
       case 'PATCH':
-        return handleNotificationSchedulesPatch(req, res);
+        return handleNotificationSchedulesPatch(req, res, user);
       case 'DELETE':
-        return handleNotificationSchedulesDelete(req, res);
+        return handleNotificationSchedulesDelete(req, res, user);
       default:
         return res.status(405).json({ error: 'Method not allowed' });
     }
   }
-
-  const user = await requireUser(req, res);
-  if (!user) return;
 
   // Soporte de impersonación para super admin (solo lectura vía GET)
   const impersonateId = req.headers['x-impersonate-company'];
